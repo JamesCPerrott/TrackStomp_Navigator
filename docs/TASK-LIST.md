@@ -85,6 +85,12 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **Covers:** —
 - **Done when:** Directory tree matches PRD §12 exactly, with empty stub headers/sources. `cmake -B build -DPICO_BOARD=pico2 && ninja -C build` produces a `.uf2` from a `main.cpp` that does nothing but spin. `tinyusb_device`, `hardware_flash`, and `hardware_sync` are linked. A `DEBUG_UART` CMake option exists and defaults to `OFF`.
 
+  **Two settings must live inside `CMakeLists.txt`, not on the command line:**
+  - `set(PICO_BOARD pico2)` — a forgotten flag would otherwise silently build an RP2040 binary that fails in confusing ways much later.
+  - `set(PICOTOOL_FETCH_FROM_GIT_PATH $ENV{HOME}/pico/picotool-build)` — points at the already-built picotool 2.3.1. Without this the configure step fails or rebuilds picotool from scratch.
+
+  **Also part of this task:** place `AGENTS.md` at the repo root and `PRD.md`, `TASK-LIST.md`, `QUESTIONS.md`, `PROGRESS.md`, and (after T03) `TEST-HARNESS.md` under `docs/`. Commit them with the skeleton.
+
 ### T02 — config-header
 - **Branch:** `task/T02-config-header`
 - **Commit:** `T02: add config.h with timing constants and cue command table`

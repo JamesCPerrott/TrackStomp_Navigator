@@ -30,6 +30,23 @@ Do not introduce a dependency or an architectural pattern not already in the pro
 
 Follow established patterns from tasks already completed in the codebase.
 
+## Verified environment
+
+This toolchain is known-good. Do not change versions or suggest alternatives without asking.
+
+| Component | Version |
+|---|---|
+| OS | Debian Trixie |
+| Pico SDK | 2.3.1 (`~/pico/pico-sdk`, `PICO_SDK_PATH` set) |
+| picotool | 2.3.1, built by the SDK into `~/pico/picotool-build` |
+| arm-none-eabi-gcc | 14.2.1 |
+| cmake / ninja | 3.31.x / Trixie default |
+| Platform | `rp2350-arm-s`, compiler `pico_arm_cortex_m33_gcc` |
+
+**picotool here is built without libusb.** It does ELF-to-UF2 conversion only. `picotool load`, `picotool info`, and `picotool reboot` are unavailable — never suggest them. Flashing is drag-and-drop: hold BOOTSEL while plugging in, the board mounts as `RP2350`, copy the `.uf2` across.
+
+`PICO_BOARD` and the picotool fetch path are set inside the project's `CMakeLists.txt`, so the commands below work with no extra flags.
+
 ## Commands
 
 ```bash
