@@ -89,7 +89,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
   - `set(PICO_BOARD pico2)` — a forgotten flag would otherwise silently build an RP2040 binary that fails in confusing ways much later.
   - `set(PICOTOOL_FETCH_FROM_GIT_PATH $ENV{HOME}/pico/picotool-build)` — points at the already-built picotool 2.3.1. Without this the configure step fails or rebuilds picotool from scratch.
 
-  **Also part of this task:** place `AGENTS.md` at the repo root and `PRD.md`, `TASK-LIST.md`, `QUESTIONS.md`, `PROGRESS.md`, and (after T03) `TEST-HARNESS.md` under `docs/`. Commit them with the skeleton.
+  **Documentation files:** verify `AGENTS.md` is at the repo root and that `PRD.md`, `TASK-LIST.md`, `QUESTIONS.md`, and `PROGRESS.md` are under `docs/`. If they are already committed, do nothing — do not move, rewrite, or reformat them. Add only what is missing. `TEST-HARNESS.md` arrives later, in T03.
 
 ### T02 — config-header
 - **Branch:** `task/T02-config-header`
