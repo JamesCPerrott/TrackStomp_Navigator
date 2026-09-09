@@ -61,13 +61,13 @@ After each task, append a dated entry to `PROGRESS.md`: task ID, what was done, 
 
 ## Bootstrap — do these interactively, before starting the loop
 
-Three tasks are not suitable for unattended work. Run them in a normal Cursor agent session with a human watching, then log them in `PROGRESS.md` in the usual format so the loop knows to start at T04.
+Three tasks are not suitable for unattended work. **The agent still writes the code** — these are supervised, not hand-written. Run them in a normal Cursor agent session where you can answer questions in real time and verify the specific things listed below, then log them in `PROGRESS.md` in the usual format so the loop knows to start at T04.
 
 | Task | Why not the loop |
 |---|---|
 | **T01** | Toolchain setup is environment-specific — SDK path, submodule pin, board file. An agent can confirm a `.uf2` was produced but not that it is a valid one. Failures here are silent and poison everything downstream. |
-| **T02** | Mechanical, but it is the single source of truth for all 32 cues. A transcription error survives the compile-time assertion and, worse, the loop would then write tests *from* `config.h` rather than the PRD — the error becomes self-consistent and invisible. **Diff the finished table against PRD §6.2 by eye before proceeding.** |
-| **T03** | The harness is the loop's only feedback signal. A subtly broken harness means hours of firmware written blind and reported green. |
+| **T02** | Mechanical, but it is the single source of truth for all 32 cues. A transcription error survives the compile-time assertion and, worse, the loop would then write tests *from* `config.h` rather than the PRD — the error becomes self-consistent and invisible. Mitigated by the PRD-parsing test required in T02's completion criteria. |
+| **T03** | The harness is the loop's only feedback signal, and its API shape constrains all eighteen downstream tasks. A subtly broken harness means hours of firmware written blind and reported green — hence the negative control in its completion criteria. |
 
 The loop must refuse to start until all three are complete and `ctest` is green.
 
@@ -93,7 +93,9 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **PRD:** §6.2, §13
 - **Verify:** build
 - **Covers:** —
-- **Done when:** `config.h` contains every constant from PRD §13 with the exact specified values, plus the full 32-entry cue table from §6.2 as a single `constexpr` structure indexed by trigger. No note number or button pairing appears anywhere else in the codebase. A compile-time assertion confirms 32 distinct notes covering 0–31. **The assertion does not catch a mis-transcribed pairing** — a human must diff the table against PRD §6.2 row by row before the loop begins.
+- **Done when:** `config.h` contains every constant from PRD §13 with the exact specified values, plus the full 32-entry cue table from §6.2 as a single `constexpr` structure indexed by trigger. No note number or button pairing appears anywhere else in the codebase. A compile-time assertion confirms 32 distinct notes covering 0–31.
+
+  **Plus a machine check for transcription.** The distinctness assertion does not catch a mis-paired trigger — swapping two rows still yields 32 distinct notes. Add a host test that parses the markdown table in PRD §6.2 and asserts every row matches the compiled table exactly: note number, prefix button, suffix button, trigger type. This catches transcription errors now and keeps catching them if either file is edited later. Prefer this over reviewing 32 rows by eye.
 
 ---
 
@@ -112,7 +114,8 @@ The loop must refuse to start until all three are complete and `ctest` is green.
   2. The harness provides a fake millisecond clock the test advances manually, per-button raw GPIO level assertion, and capture buffers for emitted `Command` and `UiEvent`.
   3. **The harness API is documented in `docs/TEST-HARNESS.md`** — every function the loop will call, with signatures and one usage example each.
   4. **Three exemplar tests exist, one per shape the loop will need to imitate:** a bounce-injection test, a timing/deadline test that advances the clock across a threshold, and a capture-buffer assertion test.
-  5. `ctest` runs green.
+  5. **A negative control passes.** Deliberately break one implementation — an off-by-one in the debounce interval, say — and confirm the relevant test goes red, then revert. A harness whose tests cannot fail is worse than no harness, because it reports green for eighteen tasks in a row. This is the single most important check in the bootstrap phase.
+  6. `ctest` runs green.
 
 > **This task gates everything after it.** It is the loop's only feedback signal, and items 3 and 4 are what let the loop write consistent tests instead of inventing three incompatible styles. Do not start the loop until `ctest` is green.
 
