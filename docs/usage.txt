@@ -1,0 +1,47 @@
+Buttons:
+*** #   Label
+    1   Intro
+    2   Verse
+    3   Chorus
+    4   Bridge
+    5   Outro
+    6   One
+    7   Two
+    8   Three
+    9   Tag
+    10  Repeat
+
+Functions:
+*** Name            MIDI Note       Button Sequence
+    Intro 1         0               1 (tap) 6 (tap)
+    Intro 2         1               1 (tap) 7 (tap)
+    Intro 3         2               1 (tap) 8 (tap)
+    Intro Tag       3               1 (tap) 9 (tap)
+    Verse 1         4               2 (tap) 6 (tap)
+    Verse 2         5               2 (tap) 7 (tap)
+    Verse 3         6               2 (tap) 8 (tap)
+    Verse Tag       7               2 (tap) 9 (tap)
+    Chorus 1        8               3 (tap) 6 (tap)
+    Chorus 2        9               3 (tap) 7 (tap)
+    Chorus 3        10              3 (tap) 8 (tap)
+    Chorus Tag      11              3 (tap) 9 (tap)
+    Bridge 1        12              4 (tap) 6 (tap)
+    Bridge 2        13              4 (tap) 7 (tap)
+    Bridge 3        14              4 (tap) 8 (tap)
+    Bridge Tag      15              4 (tap) 9 (tap)
+    Outro 1         16              5 (tap) 6 (tap)
+    Outro 2         17              5 (tap) 7 (tap)
+    Outro 3         18              5 (tap) 8 (tap)
+    Outro Tag       19              5 (tap) 9 (tap)
+    Repeat          20              10 (tap)
+    Loop            21              10 (2 second hold)
+    Title -         22              1 (tap) 1 (tap)
+    Play            23              2 (tap) 2 (tap)
+    Pad             24              3 (tap) 3 (tap)
+    Fade            25              4 (tap) 4 (tap)
+    Title +         26              5 (tap) 5 (tap)
+    Section -       27              1 (2 second hold)
+    Select          28              2 (2 second hold)
+    Auto Reset      29              3 (2 second hold)
+    Beginning       30              4 (2 second hold)
+    Section +       31              5 (2 second hold)
