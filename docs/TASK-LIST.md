@@ -10,7 +10,7 @@ Work tasks **in ID order**. Do not start a task whose dependencies are unmet.
 
 Each task specifies:
 
-- **Branch** — create from `main`, exact name given.
+- **Branch** — create from `master`, exact name given.
 - **Commit** — exact commit message. Do not improvise wording.
 - **Verify** — `host` (automated test), `build` (compiles clean), or `hardware` (human, on-device).
 - **Covers** — acceptance criteria numbers from PRD §14 that this task satisfies.
@@ -18,7 +18,7 @@ Each task specifies:
 
 ### Git workflow, per task
 
-Dependencies are linear, so branches **stack**. Branch each task from its predecessor's branch, not from `main`. Only T01 branches from `main`.
+Dependencies are linear, so branches **stack**. Branch each task from its predecessor's branch, not from `master`. Only T01 branches from `master`.
 
 ```
 git checkout task/T04-debounce          # the predecessor's branch
@@ -29,7 +29,7 @@ git commit -m "T05: implement tap and hold classification with per-button hold c
 git push -u origin task/T05-tap-hold-classification
 ```
 
-One task, one branch, one commit. Squash work-in-progress before pushing. **Never merge to `main`** — that is a human decision. Open a draft PR against the predecessor's branch and continue to the next task.
+One task, one branch, one commit. Squash work-in-progress before pushing. **Never merge to `master`** — that is a human decision. Open a draft PR against the predecessor's branch and continue to the next task.
 
 ### Progress logging
 

@@ -48,7 +48,7 @@ Implement only the task currently in scope. Do not modify, implement, or refacto
 
 ## Branching
 
-Dependencies are linear, so branches stack. Branch each task from its **predecessor's branch**, not from `main`:
+Dependencies are linear, so branches stack. Branch each task from its **predecessor's branch**, not from `master`:
 
 ```
 git checkout task/T04-debounce          # the predecessor
@@ -59,9 +59,9 @@ git commit -m "T05: implement tap and hold classification with per-button hold c
 git push -u origin task/T05-tap-hold-classification
 ```
 
-Use the exact branch name and commit message given in the task list. One task, one branch, one commit — squash work-in-progress before pushing. Never merge to `main`; that is a human decision.
+Use the exact branch name and commit message given in the task list. One task, one branch, one commit — squash work-in-progress before pushing. Never merge to `master`; that is a human decision.
 
-For T01, branch from `main`.
+For T01, branch from `master`.
 
 ## Testing
 
