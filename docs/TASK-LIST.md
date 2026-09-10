@@ -247,7 +247,13 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **PRD:** §5.1, §9
 - **Verify:** build + hardware
 - **Covers:** 1, 2
-- **Done when:** Exactly one USB interface is declared: MIDI, one virtual cable, one IN endpoint. **No CDC, no MSC, no vendor interface.** Manufacturer, product, and serial strings are set explicitly — SDK defaults are not used. No build paths or developer identity appear in any descriptor. This is the whole of PRD §5.1's USB surface requirement.
+- **Done when:** Exactly one USB interface is declared: MIDI, one virtual cable, one IN endpoint. **No CDC, no MSC, no vendor interface.**
+
+  Every descriptor value comes from the table in **PRD §9.1** — VID, PID, `bcdDevice`, all three string descriptors, and the MIDI embedded IN jack string. Do not invent values and do not fall back to SDK defaults. The serial is derived at runtime from `pico_get_unique_board_id_string()`, not hardcoded.
+
+  Verify on a host that the device enumerates as `TrackStomp Navigator` with a port named `Navigator Cues`, and that the serial is a stable 16-hex-character string across reboots. No build paths or developer identity appear in any descriptor.
+
+  **The PID is a placeholder (`0xFFFE`) until an allocation is merged into `raspberrypi/usb-pid`.** Note this in `PROGRESS.md` so it is not forgotten.
 
 ### T16 — midi-output
 - **Branch:** `task/T16-midi-output`
@@ -260,12 +266,14 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 
 ### T17 — led-driver
 - **Branch:** `task/T17-led-driver`
-- **Commit:** `T17: drive the GP25 status LED from the pattern engine`
+- **Commit:** `T17: drive the panel and onboard status LEDs from the pattern engine`
 - **Depends on:** T16
 - **PRD:** §11.1, §11.4
 - **Verify:** build + hardware
 - **Covers:** —
-- **Done when:** The T10 engine's per-tick lamp state drives GP25. Thin shim only — no pattern logic in this layer.
+- **Done when:** The T10 engine's per-tick lamp state drives **both GP16 (panel, via the NPN switch of PRD §11.2) and GP25 (onboard mirror)** from the same value, with **no inversion** — the low-side NPN is non-inverting, so high means lit on both pins. Pad drive strength on GP16 is set to 4 mA. Thin shim only, no pattern logic in this layer.
+
+  On hardware, confirm both LEDs track each other exactly through a full Setup Mode entry, channel blink, and exit.
 
 ---
 

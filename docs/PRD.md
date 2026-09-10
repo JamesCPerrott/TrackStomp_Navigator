@@ -359,11 +359,35 @@ on TIMEOUT:
 - **No running status optimisation.** Message volume is trivial; clarity beats efficiency.
 - **Repeated identical commands** are sent every time, with no suppression.
 
-**USB device identity:**
+### 9.1 USB device identity
 
-- Manufacturer, product string, and a stable serial number set explicitly in the descriptors — do not rely on SDK defaults, which leak board identifiers.
-- Product string appears in the host's MIDI device list; choose something recognisable (e.g. `Section Controller`).
-- One MIDI interface, one virtual cable, one IN endpoint. An OUT endpoint is not required in v1 but may be declared for future use.
+All descriptor values are fixed here. Do not rely on SDK defaults for any of them.
+
+| Descriptor | Value |
+|---|---|
+| `idVendor` | `0x2E8A` (Raspberry Pi) |
+| `idProduct` | Allocated via a PR to `raspberrypi/usb-pid`. Until merged, use `0xFFFE` as a development placeholder — **must be replaced before the device leaves the bench.** |
+| `bcdDevice` | `0x0100` (v1.00). Bump to `0x0200` at the v2 display iteration. |
+| `iManufacturer` | `TrackStomp` |
+| `iProduct` | `TrackStomp Navigator` |
+| `iSerialNumber` | 16 uppercase hex characters from `pico_get_unique_board_id_string()` (`pico/unique_id.h`) |
+| MIDI embedded IN jack string | `Navigator Cues` |
+
+**Why not pid.codes.** VID `0x1209` requires every project using it to carry a recognised open source license. PRD §5.1 deliberately keeps this firmware closed, so that VID is not available to this project on its own terms.
+
+**Product string length.** `TrackStomp Navigator` is 20 characters. Legacy Windows MIDI APIs truncate device names at 31, so this has headroom. Do not lengthen it past 31.
+
+**Jack string matters more than it looks.** Many DAWs display the *port* name — taken from the MIDI jack string descriptor — rather than `iProduct`. Leaving the jack string unset produces a well-named device exposing a generically-named port. `Navigator Cues` is self-describing when shown alone, and degrades acceptably when a host concatenates device and port.
+
+**Serial number stability.** Hosts key remembered MIDI port assignments on the VID/PID/serial tuple. An absent or regenerating serial makes MultiTracks Playback lose its input assignment between sessions. On RP2350 the unique ID is read from the **flash chip, not the MCU** — stable per board, but it changes if the flash is replaced, and Playback will then see a new device.
+
+**macOS caches MIDI device names.** If any of these strings change after a first connection, clear the stale entry in Audio MIDI Setup or the old name persists.
+
+### 9.2 Interface structure
+
+One MIDI interface, one virtual cable, one IN endpoint. No CDC, no MSC, no vendor interface (§5.1). An OUT endpoint is not required in v1 but may be declared for future use.
+
+No build paths, developer identity, or internal version strings appear in any descriptor beyond `bcdDevice`.
 
 ---
 
@@ -418,10 +442,13 @@ One erase cycle per channel change. Flash endurance is on the order of 100,000 c
 | Buttons 1–10 | GP6 – GP15 (contiguous, in order) |
 | Reserved: I2C0 SDA / SCL (v2 display) | GP4 / GP5 |
 | Reserved: ADC (future expression) | GP26 / GP27 / GP28 |
-| Status LED | GP25 (onboard) |
+| Panel status LED | GP16 |
+| Onboard LED (bench debug mirror) | GP25 |
 | Debug UART (debug builds only) | GP0 / GP1 |
 
 Contiguous button pins allow a single masked `gpio_get_all()` read per scan.
+
+**GP25 is not exposed on the Pico 2 header.** The 40-pin header brings out GP0–GP22 and GP26–GP28 only; GP25 is wired solely to the onboard LED. The panel LED therefore uses GP16. Both are driven from the same pattern-engine output, so the onboard LED remains usable as a bench-debug mirror while the enclosure is open.
 
 ### 11.2 Electrical
 
@@ -429,15 +456,47 @@ Contiguous button pins allow a single masked `gpio_get_all()` read per scan.
 - **Internal pull-ups only.** The RP2350 has a known erratum affecting pull-downs: a GPIO input pad can leak enough current that an internal pull-up cannot hold it high, and external pull-downs would need to be 8.2 kΩ or lower. Pull-up plus switch-to-ground sidesteps this entirely. Do not design any input around a pull-down.
 - Active-low logic: pressed reads 0.
 
+**Panel LED (GP16) — blue, switched by an NPN from VBUS.**
+
+A blue LED has a forward voltage of 3.0–3.4 V, which leaves essentially no headroom on the 3.3 V rail. It is therefore driven from **VBUS (pin 40, raw USB 5 V)** through a low-side NPN switch rather than directly from the GPIO.
+
+```
+VBUS (5V) ──▶|── LED (blue) ──[ 470Ω ]── C
+                                          │
+                                     NPN (2N3904)
+                                          │
+GP16 ──[ 2.2kΩ ]── B                      E ── GND
+```
+
+| Part | Value |
+|---|---|
+| LED | Blue 5 mm panel-mount, Vf ≈ 3.2 V |
+| LED series resistor | 470 Ω (collector leg) |
+| Transistor | 2N3904 (TO-92) or MMBT3904 (SOT-23) |
+| Base resistor | 2.2 kΩ |
+| GP16 pad drive strength | 4 mA |
+
+**Current budget.** 5 V − 3.2 V (LED) − 0.2 V (V_CE saturated) leaves 1.6 V across the series resistor, so 470 Ω yields ≈ 3.4 mA. Drop to 330 Ω (≈ 4.8 mA) or 180 Ω (≈ 8.9 mA) only if the finished panel reads dim. Blue is perceptually brighter than its drive current suggests, and a dark stage is precisely where an over-driven indicator becomes a distraction.
+
+**Base drive.** (3.3 V − 0.8 V V_BE) / 2.2 kΩ ≈ 1.1 mA of base current, giving hard saturation with wide margin at these collector currents, while drawing only ~1 mA from the pin — well inside the 4 mA pad setting.
+
+**Logic is non-inverting.** GP16 high turns the LED on. The pattern engine (§11.4) requires no change and no inversion anywhere in software.
+
+**Do not omit the transistor by sinking into GP16 from a 5 V anode.** During reset and early boot, GPIOs are inputs and the pin floats up toward 5 V through the LED. RP2350 pins are not 5 V tolerant, so this forward-biases the pad's ESD diode into the 3.3 V rail on every power-up. It will appear to work for months.
+
+If a MOSFET is preferred, a BSS138 with a 10 kΩ gate-to-source pull-down (so it stays off while GP16 is an input during boot) is equivalent. The NPN is cheaper and simpler at this current, and is what v1 specifies.
+
+**Onboard LED (GP25).** Driven directly from the same pattern-engine output as GP16, no external parts — it already has its own series resistor on the Pico 2. Bench debugging only; invisible once the enclosure is closed.
+
 ### 11.3 Debounce
 
 - Poll every `SCAN_INTERVAL_MS` (1 ms).
 - A state change is accepted only after the new level is stable for `DEBOUNCE_MS` (default **20**). Footswitches bounce far worse than fingers; do not reduce below 15 without measuring.
 - Debounce is per-button and independent. Chord detection (§6.5) operates on debounced state, never raw. In particular, `chord_armed` must not be cleared by a contact bounce on 6 or 9 — this is precisely the failure that would make a 5-second chord unreachable in practice.
 
-### 11.4 LED feedback
+### 11.4 LED indication patterns
 
-The single LED on GP25 is the only feedback available before the display exists. Setup Mode is unusable without it, so these patterns are a requirement, not a nicety.
+The single panel LED on GP16 (mirrored to the onboard LED on GP25) is the only feedback available before the display exists. Setup Mode is unusable without it, so these patterns are a requirement, not a nicety.
 
 #### 11.4.1 Priority stack
 
