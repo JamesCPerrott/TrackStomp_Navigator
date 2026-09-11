@@ -382,3 +382,30 @@ None.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T12 — led-chord-progress — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T12-led-chord-progress
+**Commit:** (this commit)
+**Criteria covered:** 41, 42, 43, 44
+**Tests:** 1 added (led_chord_progress), 13 total, all green
+
+**Done:**
+While `chord_armed`, priority 2 forces the lamp off for
+`CHORD_LED_DELAY_MS`, then flashes at a 250 ms period. Setup solid takes
+over at 5 s. Abort drops the override immediately; re-form restarts the
+blackout from `buttons_chord_start()` (Q009).
+
+**Tried and abandoned:**
+Driving the waveform from the tick `chord_armed` rises — that would be
+debounce-late and miss “500 ms from the re-press”.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q009 [ASSUMED] — poll chord_armed / chord_start from
+input.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
