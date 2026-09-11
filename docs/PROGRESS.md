@@ -1,4 +1,4 @@
-LOOP-STATUS: RUNNING
+LOOP-STATUS: COMPLETE
 
 # Progress log
 
@@ -626,4 +626,36 @@ latch, `tusb_init(rhport, &dev_init)`.
 
 **Defects noted in earlier tasks (not fixed):**
 None.
+
+## T21 — release-build-hardening — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T21-release-build-hardening
+**Commit:** (this commit)
+**Criteria covered:** 2 (host: no CDC/MSC/vendor in descriptors, USB stdio
+off; on-device "no serial port" is T22)
+**Tests:** 1 added (release_build_hardening), 18 total, all green. pico2
+`.uf2` produced. Post-build grep of ELF loadable sections and UF2 finds
+no `/home/` or `/Users/` paths.
+
+**Done:**
+`DEBUG_UART` still defaults OFF; when ON it defines `DEBUG_UART` and
+calls `stdio_init_all()` for GP0/GP1 UART only. USB stdio stays off.
+`-ffile-prefix-map` plus a CMake post-build check (Q020). Tier 2 not
+implemented.
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q020 [ASSUMED] — prefix-map + `strings -d`/`-a`;
+`stdio_init_all` only under `DEBUG_UART`.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
+T01–T21 are committed after this push. T22–T23 are human hardware
+validation and are outside the loop.
 
