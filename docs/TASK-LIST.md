@@ -333,6 +333,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 ## Phase 7 — Integration
 
 ### T20 — main-loop-integration
+- **Status:** complete
 - **Branch:** `task/T20-main-loop-integration`
 - **Commit:** `T20: wire all modules into the cooperative main loop`
 - **Depends on:** T19

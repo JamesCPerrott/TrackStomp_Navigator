@@ -2,6 +2,8 @@
 
 #include "config.h"
 #include "input/buttons.h"
+#include "main.h"
+#include "midi/midi_out.h"
 #include "sequencer/sequencer.h"
 #include "ui/ui.h"
 
@@ -57,6 +59,7 @@ void drain_captures() {
 void pipeline() {
     buttons_scan(g_now_ms);
     sequencer_tick(g_now_ms);
+    loop_dispatch();
     ui_tick(g_now_ms);
     drain_captures();
     g_lamp_trace.push_back(ui_lamp() ? uint8_t{1} : uint8_t{0});
@@ -121,6 +124,7 @@ void harness_reset() {
         g_pressed[i]     = false;
         g_transitions[i] = 0;
     }
+    midi_out_reset();
     harness_clear_captures();
     pipeline();
 }

@@ -513,6 +513,35 @@ T20 so sequencer still never calls flash.
 
 ---
 
+## Q019 — [ASSUMED] — T20
+
+**Task:** T20 main-loop-integration
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+`loop_dispatch` runs after `sequencer_tick` and before `ui_tick`. Commands
+are copied into a MIDI drain (`sequencer_poll_command_for_midi`) so the
+harness Command capture stays intact. Setup exit latches a channel via
+`sequencer_poll_setup_commit` rather than stealing `UiEvent`. USB is
+started with `tusb_init(BOARD_TUD_RHPORT, &dev_init)`. Clock is
+`to_ms_since_boot(get_absolute_time())`. `sleep_us(500)` matches §12.2.
+The harness pipeline calls `loop_dispatch`; `harness_reset` also calls
+`midi_out_reset`. Core 1 is not started.
+
+**Reasoning:**
+PRD §12.1 forbids the sequencer from calling MIDI or flash. Dual Command
+queue is the Q005/Q013 pattern. A setup-commit latch avoids a third UI
+queue. TinyUSB 0.17 in SDK 2.3.1 rejects `tusb_init(void)` unless
+`CFG_TUSB_RHPORT0_MODE` is set.
+
+**Cost to reverse:** low — drain UI SetupExit instead, or init with
+`CFG_TUSB_RHPORT0_MODE`.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._
