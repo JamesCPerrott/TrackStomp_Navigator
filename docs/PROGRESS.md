@@ -598,3 +598,32 @@ call; noinline RAM commit.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T20 — main-loop-integration — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T20-main-loop-integration
+**Commit:** (this commit)
+**Criteria covered:** — (wires T08–T19; on-device USB/MIDI is T22)
+**Tests:** 1 added (main_loop_dispatch), 17 total, all green. pico2 `.uf2`
+produced.
+
+**Done:**
+Cooperative loop is `tud_task`, scan, sequencer, dispatch, `ui_tick`,
+`sleep_us(500)`. Dispatch sends Commands over MIDI and commits setup
+channel to flash + midi_out (Q019). Sequencer still does not call GPIO,
+MIDI, or flash. Core 1 unused.
+
+**Tried and abandoned:**
+`tusb_init(void)` — TinyUSB in SDK 2.3.1 requires a rhport/role init
+unless `CFG_TUSB_RHPORT0_MODE` is defined.
+
+**Contradicts PRD:**
+None. Dispatch sits between `sequencer_tick` and `ui_tick`; §12.2 does
+not list it because MIDI/flash are not sequencer work.
+
+**Questions raised:** Q019 [ASSUMED] — dual Command queue, setup-commit
+latch, `tusb_init(rhport, &dev_init)`.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+

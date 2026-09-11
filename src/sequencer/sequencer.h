@@ -24,7 +24,9 @@ struct UiEvent {
 
 void sequencer_tick(uint32_t now);
 bool sequencer_poll_command(Command* out);
+bool sequencer_poll_command_for_midi(Command* out);
 bool sequencer_poll_ui_event(UiEvent* out);
 bool sequencer_poll_ui_event_for_engine(UiEvent* out);
+bool sequencer_poll_setup_commit(uint8_t* out);
 
 #endif

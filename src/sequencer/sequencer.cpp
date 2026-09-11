@@ -21,14 +21,19 @@ uint32_t g_last_now       = 0;
 bool g_exit_ready         = false;
 bool g_exit_overlap       = false;
 Command g_commands[kQueueSize]{};
+Command g_midi_commands[kQueueSize]{};
 UiEvent g_ui_events[kQueueSize]{};
 UiEvent g_ui_engine[kQueueSize]{};
-std::size_t g_cmd_head     = 0;
-std::size_t g_cmd_count    = 0;
-std::size_t g_ui_head      = 0;
-std::size_t g_ui_count     = 0;
-std::size_t g_ui_eng_head  = 0;
-std::size_t g_ui_eng_count = 0;
+std::size_t g_cmd_head         = 0;
+std::size_t g_cmd_count        = 0;
+std::size_t g_midi_head        = 0;
+std::size_t g_midi_count       = 0;
+std::size_t g_ui_head          = 0;
+std::size_t g_ui_count         = 0;
+std::size_t g_ui_eng_head      = 0;
+std::size_t g_ui_eng_count     = 0;
+bool g_setup_commit_pending    = false;
+uint8_t g_setup_commit_channel = DEFAULT_MIDI_CHANNEL;
 
 bool is_prefix(uint8_t id) {
     return id >= 1U && id <= 5U;
@@ -39,12 +44,17 @@ bool is_suffix(uint8_t id) {
 }
 
 void push_command(uint8_t note) {
-    if (g_cmd_count >= kQueueSize) {
-        return;
+    const Command command{note};
+    if (g_cmd_count < kQueueSize) {
+        const std::size_t index = (g_cmd_head + g_cmd_count) % kQueueSize;
+        g_commands[index]       = command;
+        g_cmd_count += 1U;
     }
-    const std::size_t index = (g_cmd_head + g_cmd_count) % kQueueSize;
-    g_commands[index]       = Command{note};
-    g_cmd_count += 1U;
+    if (g_midi_count < kQueueSize) {
+        const std::size_t index = (g_midi_head + g_midi_count) % kQueueSize;
+        g_midi_commands[index]  = command;
+        g_midi_count += 1U;
+    }
 }
 
 void push_ui(UiEventKind kind, uint8_t value) {
@@ -102,7 +112,9 @@ void enter_setup() {
 }
 
 void exit_setup() {
-    g_current_channel = g_pending_channel;
+    g_current_channel      = g_pending_channel;
+    g_setup_commit_pending = true;
+    g_setup_commit_channel = g_current_channel;
     push_ui(UiEventKind::SetupExit, g_current_channel);
     enter_idle();
 }
@@ -111,13 +123,16 @@ void reset_sequencer() {
     g_current_channel = DEFAULT_MIDI_CHANNEL;
     g_pending_channel = DEFAULT_MIDI_CHANNEL;
     enter_idle();
-    g_deadline     = 0;
-    g_cmd_head     = 0;
-    g_cmd_count    = 0;
-    g_ui_head      = 0;
-    g_ui_count     = 0;
-    g_ui_eng_head  = 0;
-    g_ui_eng_count = 0;
+    g_deadline             = 0;
+    g_cmd_head             = 0;
+    g_cmd_count            = 0;
+    g_midi_head            = 0;
+    g_midi_count           = 0;
+    g_ui_head              = 0;
+    g_ui_count             = 0;
+    g_ui_eng_head          = 0;
+    g_ui_eng_count         = 0;
+    g_setup_commit_pending = false;
 }
 
 void resolve_pair(uint8_t prefix, uint8_t suffix) {
@@ -254,6 +269,16 @@ bool sequencer_poll_command(Command* out) {
     return true;
 }
 
+bool sequencer_poll_command_for_midi(Command* out) {
+    if (out == nullptr || g_midi_count == 0U) {
+        return false;
+    }
+    *out        = g_midi_commands[g_midi_head];
+    g_midi_head = (g_midi_head + 1U) % kQueueSize;
+    g_midi_count -= 1U;
+    return true;
+}
+
 bool sequencer_poll_ui_event(UiEvent* out) {
     if (out == nullptr || g_ui_count == 0U) {
         return false;
@@ -271,5 +296,14 @@ bool sequencer_poll_ui_event_for_engine(UiEvent* out) {
     *out          = g_ui_engine[g_ui_eng_head];
     g_ui_eng_head = (g_ui_eng_head + 1U) % kQueueSize;
     g_ui_eng_count -= 1U;
+    return true;
+}
+
+bool sequencer_poll_setup_commit(uint8_t* out) {
+    if (out == nullptr || !g_setup_commit_pending) {
+        return false;
+    }
+    *out                   = g_setup_commit_channel;
+    g_setup_commit_pending = false;
     return true;
 }
