@@ -217,6 +217,30 @@ exit event.
 
 ---
 
+## Q007 — [ASSUMED] — T10
+
+**Task:** T10 led-pattern-engine
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+UiEvents are copied into a second ring drained by
+`sequencer_poll_ui_event_for_engine` so `ui_tick` can consume them without
+emptying the harness drain. T10 lights only priority 3 (setup solid) and 7
+(idle off). Priorities 1, 2, 4, 5, 6 stay dark until T11–T13.
+
+**Reasoning:**
+Same dual-queue pattern as Q005. Criterion 60 is a per-tick bound, not the
+performance waveforms. Setup solid is in the §11.4.1 table, so it belongs
+in the engine now.
+
+**Cost to reverse:** low — change which poll `ui_tick` uses, or fold later
+patterns into `resolve_stack`.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._

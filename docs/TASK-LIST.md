@@ -211,6 +211,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 ## Phase 4 — LED indication
 
 ### T10 — led-pattern-engine
+- **Status:** complete
 - **Branch:** `task/T10-led-pattern-engine`
 - **Commit:** `T10: implement non-blocking LED pattern engine with priority stack`
 - **Depends on:** T09

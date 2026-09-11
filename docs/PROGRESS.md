@@ -329,3 +329,29 @@ None. Flash write on exit is T19.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T10 — led-pattern-engine — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T10-led-pattern-engine
+**Commit:** (this commit)
+**Criteria covered:** 60
+**Tests:** 1 added (led_pattern_engine), 11 total, all green
+
+**Done:**
+Tick-driven 7-level priority stack in `ui_tick`. No `sleep_ms`. Setup is
+solid on (priority 3); idle is off. Other layers stubbed for T11–T13.
+UiEvents copied for the engine drain (Q007). Host test asserts a < 10 ms
+bound per tick and the setup on/off waveform.
+
+**Tried and abandoned:**
+Indexing `harness_lamp_trace()[t]` as time — extra `harness_press` samples
+at the same timestamp shift the index; used `.back()` instead.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q007 [ASSUMED] — dual UiEvent queues.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
