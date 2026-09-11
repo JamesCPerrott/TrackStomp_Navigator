@@ -1,0 +1,102 @@
+name: CI
+
+# Runs on every branch, not just master. The point is to check the loop's
+# self-reported results on a clean checkout before a human reviews the stack.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-tests:
+    name: Host tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build clang-format-19 clang-tidy-19
+          sudo ln -sf /usr/bin/clang-format-19 /usr/local/bin/clang-format
+          sudo ln -sf /usr/bin/clang-tidy-19 /usr/local/bin/clang-tidy
+
+      - name: Configure
+        run: cmake --preset host
+
+      - name: Build
+        run: ninja -C build-host
+
+      # The loop's own feedback signal, re-run on a clean checkout with
+      # nothing but committed files present.
+      - name: Test
+        run: ctest --test-dir build-host --output-on-failure
+
+      # Guards against a harness that silently checks nothing: if this file
+      # is missing, clang-tidy exits 0 having done no work.
+      - name: Verify compilation database exists
+        run: test -s build-host/compile_commands.json
+
+      - name: clang-format
+        run: |
+          FILES=$(git ls-files '*.c' '*.cpp' '*.h' '*.hpp')
+          if [ -z "$FILES" ]; then echo "No sources"; exit 0; fi
+          clang-format --dry-run --Werror $FILES
+
+      - name: clang-tidy
+        run: |
+          FILES=$(git ls-files 'src/*.cpp' 'src/**/*.cpp')
+          if [ -z "$FILES" ]; then echo "No sources"; exit 0; fi
+          clang-tidy -p build-host $FILES
+
+  firmware-build:
+    name: Firmware build (pico2)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib \
+            pkg-config libusb-1.0-0-dev
+
+      # ~1GB with submodules. Keyed on the SDK tag so it is fetched once.
+      - name: Cache Pico SDK
+        id: cache-sdk
+        uses: actions/cache@v4
+        with:
+          path: ~/pico/pico-sdk
+          key: pico-sdk-2.3.1
+
+      - name: Clone Pico SDK
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/pico
+          git clone --branch 2.3.1 --depth 1 \
+            https://github.com/raspberrypi/pico-sdk.git ~/pico/pico-sdk
+          git -C ~/pico/pico-sdk submodule update --init --depth 1
+
+      - name: Cache picotool build
+        uses: actions/cache@v4
+        with:
+          path: ~/pico/picotool-build
+          key: picotool-2.3.1-${{ runner.os }}
+
+      - name: Configure
+        env:
+          PICO_SDK_PATH: /home/runner/pico/pico-sdk
+        run: cmake --preset pico2
+
+      - name: Build
+        env:
+          PICO_SDK_PATH: /home/runner/pico/pico-sdk
+        run: ninja -C build
+
+      - name: Confirm UF2 was produced
+        run: test -n "$(find build -name '*.uf2' -print -quit)"
