@@ -1,4 +1,4 @@
-LOOP-STATUS: NOT STARTED
+LOOP-STATUS: RUNNING
 
 # Progress log
 
@@ -169,6 +169,33 @@ remain no-ops. `buttons_poll_event` is the test drain; T08 must not consume that
 queue without leaving a copy if T04–T07 ButtonEvent assertions are to stay green.
 
 **Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
+## T04 — debounce — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T04-debounce
+**Commit:** (this commit)
+**Criteria covered:** 57
+**Tests:** 1 added (debounce_filter), bounce and capture updated, 5 total, all green
+
+**Done:**
+Per-button debounce in `buttons_scan`: a GPIO level is accepted only after
+`DEBOUNCE_MS` of stability. Debounced rising edges enqueue `ButtonEventKind::Tap`
+(Q001). Bounce trains of 5–20 edges over 10 ms emit exactly one event. Criterion
+57: 50 clean press/release cycles emit one event per press. Host link of
+`firmware_host` and `harness` is now cyclic so `buttons_gpio_levels()` resolves.
+
+**Tried and abandoned:**
+- `clang-format` on `CMakeLists.txt` — the LLVM style wrecks CMake syntax;
+  restored from git and re-applied the test target by hand.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q001 [ASSUMED] — Tap on debounced press until T05 classifies.
 
 **Defects noted in earlier tasks (not fixed):**
 None.
