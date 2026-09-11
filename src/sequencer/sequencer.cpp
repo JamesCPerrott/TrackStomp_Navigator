@@ -10,12 +10,16 @@ namespace {
 
 constexpr std::size_t kQueueSize = 16;
 
-enum class SeqState : uint8_t { Idle, Pending };
+enum class SeqState : uint8_t { Idle, Pending, Setup };
 
-SeqState g_state    = SeqState::Idle;
-uint8_t g_prefix    = 0;
-uint32_t g_deadline = 0;
-uint32_t g_last_now = 0;
+SeqState g_state          = SeqState::Idle;
+uint8_t g_prefix          = 0;
+uint8_t g_current_channel = DEFAULT_MIDI_CHANNEL;
+uint8_t g_pending_channel = DEFAULT_MIDI_CHANNEL;
+uint32_t g_deadline       = 0;
+uint32_t g_last_now       = 0;
+bool g_exit_ready         = false;
+bool g_exit_overlap       = false;
 Command g_commands[kQueueSize]{};
 UiEvent g_ui_events[kQueueSize]{};
 std::size_t g_cmd_head  = 0;
@@ -72,11 +76,32 @@ void enter_pending(uint8_t prefix, uint32_t now) {
 }
 
 void enter_idle() {
-    g_state  = SeqState::Idle;
-    g_prefix = 0;
+    g_state        = SeqState::Idle;
+    g_prefix       = 0;
+    g_exit_ready   = false;
+    g_exit_overlap = false;
+    buttons_set_setup_active(false);
+}
+
+void enter_setup() {
+    g_state           = SeqState::Setup;
+    g_prefix          = 0;
+    g_pending_channel = g_current_channel;
+    g_exit_ready      = false;
+    g_exit_overlap    = false;
+    buttons_set_setup_active(true);
+    push_ui(UiEventKind::SetupEnter, g_current_channel);
+}
+
+void exit_setup() {
+    g_current_channel = g_pending_channel;
+    push_ui(UiEventKind::SetupExit, g_current_channel);
+    enter_idle();
 }
 
 void reset_sequencer() {
+    g_current_channel = DEFAULT_MIDI_CHANNEL;
+    g_pending_channel = DEFAULT_MIDI_CHANNEL;
     enter_idle();
     g_deadline  = 0;
     g_cmd_head  = 0;
@@ -95,6 +120,13 @@ void resolve_pair(uint8_t prefix, uint8_t suffix) {
 }
 
 void on_tap(uint8_t id, uint32_t now) {
+    if (g_state == SeqState::Setup) {
+        g_pending_channel = id;
+        g_deadline        = now + SETUP_TIMEOUT_MS;
+        push_ui(UiEventKind::SetupChannel, id);
+        return;
+    }
+
     if (g_state == SeqState::Pending) {
         if (is_suffix(id) || id == g_prefix) {
             resolve_pair(g_prefix, id);
@@ -128,6 +160,9 @@ void on_tap(uint8_t id, uint32_t now) {
 }
 
 void on_hold(uint8_t id) {
+    if (g_state == SeqState::Setup) {
+        return;
+    }
     uint8_t note = 0;
     if (lookup_note(CueTrigger::Hold, id, 0, note)) {
         push_command(note);
@@ -136,8 +171,9 @@ void on_hold(uint8_t id) {
     enter_idle();
 }
 
-void on_chord_hold() {
-    enter_idle();
+void on_chord_hold(uint32_t now) {
+    g_deadline = now + SETUP_TIMEOUT_MS;
+    enter_setup();
 }
 
 } // namespace
@@ -158,8 +194,37 @@ void sequencer_tick(uint32_t now) {
             on_hold(event.id);
             break;
         case ButtonEventKind::ChordHold:
-            on_chord_hold();
+            on_chord_hold(now);
             break;
+        }
+    }
+
+    if (g_state == SeqState::Setup) {
+        bool any_down = false;
+        for (uint8_t id = 1; id <= BUTTON_COUNT; ++id) {
+            if (buttons_accepted_pressed(id)) {
+                any_down = true;
+                break;
+            }
+        }
+        if (any_down) {
+            g_deadline = now + SETUP_TIMEOUT_MS;
+        }
+
+        const bool a_down = buttons_accepted_pressed(CHORD_BUTTON_A);
+        const bool b_down = buttons_accepted_pressed(CHORD_BUTTON_B);
+        if (!g_exit_ready) {
+            if (!a_down && !b_down) {
+                g_exit_ready = true;
+            }
+        } else if (a_down && b_down) {
+            g_exit_overlap = true;
+        } else if (g_exit_overlap && !a_down && !b_down) {
+            exit_setup();
+        }
+
+        if (g_state == SeqState::Setup && !any_down && now >= g_deadline) {
+            exit_setup();
         }
     }
 

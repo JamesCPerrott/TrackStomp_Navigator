@@ -35,6 +35,7 @@ LockKind g_lock           = LockKind::None;
 uint8_t g_lock_id         = 0;
 bool g_initialized        = false;
 bool g_chord_armed        = false;
+bool g_setup_active       = false;
 
 bool pin_pressed(uint32_t levels, uint8_t index) {
     const uint32_t bit = uint32_t{1} << (BUTTON_GPIO_BASE + index);
@@ -119,12 +120,13 @@ void init_from_gpio(uint32_t now, uint32_t levels) {
         g_slots[i].tap_suppressed    = false;
         g_slots[i].chord_overlap     = false;
     }
-    g_initialized = true;
-    g_last_now    = now;
-    g_chord_start = 0;
-    g_chord_armed = false;
-    g_lock        = LockKind::None;
-    g_lock_id     = 0;
+    g_initialized  = true;
+    g_last_now     = now;
+    g_chord_start  = 0;
+    g_chord_armed  = false;
+    g_lock         = LockKind::None;
+    g_lock_id      = 0;
+    g_setup_active = false;
 }
 
 void note_chord_press(ButtonSlot& slot, uint8_t id) {
@@ -183,6 +185,10 @@ void classify_hold(ButtonSlot& slot, uint8_t id, uint32_t now) {
     if ((now - slot.press_time) < HOLD_MS) {
         return;
     }
+    if (g_setup_active) {
+        slot.tap_suppressed = true;
+        return;
+    }
     if (hold_capable(id)) {
         queue_push(id, ButtonEventKind::Hold);
         slot.hold_fired = true;
@@ -198,7 +204,7 @@ void classify_hold(ButtonSlot& slot, uint8_t id, uint32_t now) {
 }
 
 void classify_chord(uint32_t now) {
-    if (is_locked() || !g_chord_armed) {
+    if (g_setup_active || is_locked() || !g_chord_armed) {
         return;
     }
     const ButtonSlot& slot_a = g_slots[button_index(CHORD_BUTTON_A)];
@@ -276,6 +282,17 @@ bool buttons_poll_sequencer_event(ButtonEvent* out) {
     g_seq_head = (g_seq_head + 1U) % kEventQueueSize;
     g_seq_count -= 1U;
     return true;
+}
+
+void buttons_set_setup_active(bool active) {
+    g_setup_active = active;
+}
+
+bool buttons_accepted_pressed(uint8_t id) {
+    if (id < 1U || id > BUTTON_COUNT) {
+        return false;
+    }
+    return g_slots[button_index(id)].accepted_pressed;
 }
 
 #ifndef HOST_TEST
