@@ -64,6 +64,10 @@ clang-format --dry-run --Werror <files>
 clang-tidy -p build-host <files>
 ```
 
+`clang-format` and `clang-tidy` read `.clang-format` and `.clang-tidy` at the repo root. **Never edit, regenerate, or override these files.** If a check fires, fix the code — suppressing the check is a BLOCKER question, not a decision to make alone.
+
+`clang-tidy` requires `compile_commands.json`, which the host build generates with `CMAKE_EXPORT_COMPILE_COMMANDS=ON`.
+
 There is no package manager and no dependency audit. The Pico SDK is a pinned submodule — never change the pin.
 
 ## Layer rules (PRD §12.1)

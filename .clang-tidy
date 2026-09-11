@@ -1,0 +1,32 @@
+---
+# Tuned for embedded C++ on RP2350. The loop needs a binary pass/fail signal,
+# so correctness checks are errors while style checks are warnings.
+
+Checks: >
+  bugprone-*,
+  clang-analyzer-*,
+  cert-*,
+  performance-*,
+  readability-*,
+  misc-*,
+  -bugprone-easily-swappable-parameters,
+  -readability-magic-numbers,
+  -readability-identifier-length,
+  -readability-function-cognitive-complexity,
+  -misc-non-private-member-variables-in-classes,
+  -cert-dcl21-cpp
+
+# Anything here fails the build. Correctness only — style issues should not
+# halt a long unattended run.
+WarningsAsErrors: >
+  bugprone-*,
+  clang-analyzer-*,
+  cert-*
+
+HeaderFilterRegex: '^src/'
+
+CheckOptions:
+  - key: readability-braces-around-statements.ShortStatementLines
+    value: '0'
+  - key: readability-implicit-bool-conversion.AllowIntegerConditions
+    value: 'false'
