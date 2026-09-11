@@ -186,6 +186,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 ## Phase 3 — Sequencer
 
 ### T08 — sequence-state-machine
+- **Status:** complete
 - **Branch:** `task/T08-sequence-state-machine`
 - **Commit:** `T08: implement IDLE and PENDING sequence resolution`
 - **Depends on:** T07
@@ -196,6 +197,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **Done when:** Taps of 1–5 enter `PENDING`. A pending prefix resolves against any of 6–9 or itself. A different prefix reassigns without emitting. A tap of 10 fires Repeat and clears any pending. Orphan suffixes are ignored. `SEQUENCE_TIMEOUT_MS` expiry is silent. The self-pair check must precede prefix reassignment — test 6 (`3, 3` → note 24) catches the wrong ordering.
 
 ### T09 — setup-mode-state
+- **Status:** complete
 - **Branch:** `task/T09-setup-mode-state`
 - **Commit:** `T09: implement MIDI channel setup mode state and exit paths`
 - **Depends on:** T08

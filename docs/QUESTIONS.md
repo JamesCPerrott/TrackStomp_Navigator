@@ -167,6 +167,56 @@ needed.
 
 ---
 
+## Q005 — [ASSUMED] — T08
+
+**Task:** T08 sequence-state-machine
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+`queue_push` copies each `ButtonEvent` into a second ring buffer drained by
+`buttons_poll_sequencer_event`. `buttons_poll_event` remains the harness drain.
+ChordHold clears PENDING and sends no cue; SETUP is T09. Holds emit `Command`
+plus `UiEventKind::Locked`.
+
+**Reasoning:**
+T03 forbids the sequencer from emptying the harness queue. A copied drain is
+the option named in T08. Notes always come from `CUE_TABLE`.
+
+**Cost to reverse:** low — change which poll the sequencer calls, or the
+ChordHold/hold UiEvent kinds.
+
+**ANSWER (only if overriding):**
+
+---
+
+## Q006 — [ASSUMED] — T09
+
+**Task:** T09 setup-mode-state
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+Sequencer notifies input of SETUP via `buttons_set_setup_active` so holds
+emit no lockout and the 5 s chord threshold is ignored. Setup-exit overlap
+is detected by polling `buttons_accepted_pressed` for 6 and 9 after the
+entry pair has been released. Channel is RAM-only (`pending_channel` /
+`current_channel`); no flash.
+
+**Reasoning:**
+Input does not know SETUP (Q004) but must suppress hold lockout and a
+second ChordHold while in the mode (PRD §8.3). A new ButtonEvent kind for
+overlap-release would break T06 abort silence. Polling accepted state is
+not GPIO. Exit is armed only after both entry feet are off so the entry
+release does not immediately leave SETUP.
+
+**Cost to reverse:** low — change the notify/poll API, or emit a dedicated
+exit event.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._

@@ -68,6 +68,14 @@ if (BUILD_HOST_TESTS)
     target_link_libraries(test_lockout PRIVATE harness)
     add_test(NAME hold_lockout COMMAND test_lockout)
 
+    add_executable(test_sequence tests/test_sequence.cpp)
+    target_link_libraries(test_sequence PRIVATE harness)
+    add_test(NAME sequence_state_machine COMMAND test_sequence)
+
+    add_executable(test_setup tests/test_setup.cpp)
+    target_link_libraries(test_setup PRIVATE harness)
+    add_test(NAME setup_mode_state COMMAND test_setup)
+
     add_executable(test_capture tests/test_capture.cpp)
     target_link_libraries(test_capture PRIVATE harness)
     add_test(NAME capture_buffers COMMAND test_capture)

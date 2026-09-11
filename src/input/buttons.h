@@ -12,6 +12,9 @@ struct ButtonEvent {
 
 void buttons_scan(uint32_t now);
 bool buttons_poll_event(ButtonEvent* out);
+bool buttons_poll_sequencer_event(ButtonEvent* out);
+void buttons_set_setup_active(bool active);
+bool buttons_accepted_pressed(uint8_t id);
 uint32_t buttons_gpio_levels();
 
 #endif
