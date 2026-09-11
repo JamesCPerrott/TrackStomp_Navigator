@@ -17,6 +17,7 @@ if (BUILD_HOST_TESTS)
         src/sequencer/sequencer.cpp
         src/ui/ui.cpp
         src/midi/midi_out.cpp
+        src/storage/config_store.cpp
     )
     target_include_directories(firmware_host PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -97,6 +98,10 @@ if (BUILD_HOST_TESTS)
     target_link_libraries(test_midi_out PRIVATE harness)
     add_test(NAME midi_note_transmission COMMAND test_midi_out)
 
+    add_executable(test_config_store tests/test_config_store.cpp)
+    target_link_libraries(test_config_store PRIVATE harness)
+    add_test(NAME config_store_read COMMAND test_config_store)
+
     add_executable(test_capture tests/test_capture.cpp)
     target_link_libraries(test_capture PRIVATE harness)
     add_test(NAME capture_buffers COMMAND test_capture)
@@ -158,4 +163,10 @@ else()
     endif()
 
     pico_add_extra_outputs(trackstomp_navigator)
+
+    # PRD §10.1: last 4 KB flash sector is reserved for ConfigRecord and must
+    # sit outside the linker image so a firmware update cannot clobber it.
+    # pico_override_flash_size also redefines PICO_FLASH_SIZE_BYTES, which
+    # config_store uses as the reserved-sector offset (Q016).
+    pico_override_flash_size(trackstomp_navigator "(4 * 1024 * 1024) - 4096")
 endif()

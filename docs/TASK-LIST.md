@@ -309,6 +309,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 ## Phase 6 — Persistence
 
 ### T18 — config-store-read
+- **Status:** complete
 - **Branch:** `task/T18-config-store-read`
 - **Commit:** `T18: implement config sector read with CRC validation and channel 1 fallback`
 - **Depends on:** T17

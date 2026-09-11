@@ -415,6 +415,77 @@ Thin shim in the existing UI module; no new layer. Pattern logic stays in
 
 ---
 
+## Q015 — [ASSUMED] — T18
+
+**Task:** T18 config-store-read
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+CRC32 is CRC-32/ISO-HDLC (polynomial `0xEDB88320`, init `0xFFFFFFFF`,
+final xor `0xFFFFFFFF`), computed over the eight bytes preceding `crc32`.
+
+**Reasoning:**
+PRD §10.1 says “crc32 over all preceding bytes” without naming a
+polynomial. IEEE/ISO-HDLC is the usual embedded CRC-32 and matches
+erased `0xFF` failing validation.
+
+**Cost to reverse:** medium — stored records would need a version bump or
+a rewrite on next setup exit.
+
+**ANSWER (only if overriding):**
+
+---
+
+## Q016 — [ASSUMED] — T18
+
+**Task:** T18 config-store-read
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+`pico_override_flash_size` shrinks the linker FLASH length to
+`(4 * 1024 * 1024) - 4096` (Pico 2 4 MB minus one sector). That also
+redefines `PICO_FLASH_SIZE_BYTES`, which `config_store` uses as the
+XIP offset of the reserved last sector.
+
+**Reasoning:**
+SDK 2.3.1 documents this as the way to exclude a tail region from the
+image without a custom memmap. The config then lives at
+`XIP_BASE + PICO_FLASH_SIZE_BYTES`.
+
+**Cost to reverse:** low — different offset math if flash size is not
+overridden, or a dedicated `CONFIG_FLASH_OFFSET` constant.
+
+**ANSWER (only if overriding):**
+
+---
+
+## Q017 — [ASSUMED] — T18
+
+**Task:** T18 config-store-read
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+Boot in `main` calls `config_store_read_channel()`, applies it with
+`midi_out_set_channel` and `ui_indicate_channel`, and never writes.
+Sequencer RAM channel is unchanged (T19/T20). Host tests inject a RAM
+copy of `ConfigRecord`; `config_store_host_write_count()` stays 0
+because T18 has no write path.
+
+**Reasoning:**
+PRD §12.1 allows `config_store` at boot. Applying the channel here
+covers criteria 39/54 on a factory-fresh read of 1. T20 still owns the
+scan loop.
+
+**Cost to reverse:** low — defer midi_out/LED apply to T20, or dual-queue
+the sequencer channel.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._
