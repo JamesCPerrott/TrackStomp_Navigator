@@ -491,3 +491,29 @@ None.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T16 — midi-output — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T16-midi-output
+**Commit:** (this commit)
+**Criteria covered:** 3 (build/host bytes; on-host Playback is hardware)
+**Tests:** 1 added (midi_note_transmission), 15 total, all green
+
+**Done:**
+MIDI layer owns the channel (default 1). `midi_out_send` writes a full
+Note On, velocity `MIDI_VELOCITY`, no running status. `SEND_NOTE_OFF` is
+honoured and currently false. Sequencer is not called (Q013). Host
+capture asserts channel 1 and 8 encodings and repeated identical cues.
+
+**Tried and abandoned:**
+Polling `sequencer_poll_command` from midi_out — that would empty the
+harness Command drain.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q013 [ASSUMED] — send API only; T20 drains Commands.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+

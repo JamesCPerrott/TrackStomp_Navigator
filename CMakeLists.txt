@@ -16,6 +16,7 @@ if (BUILD_HOST_TESTS)
         src/input/buttons.cpp
         src/sequencer/sequencer.cpp
         src/ui/ui.cpp
+        src/midi/midi_out.cpp
     )
     target_include_directories(firmware_host PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -91,6 +92,10 @@ if (BUILD_HOST_TESTS)
     add_executable(test_led_channel tests/test_led_channel.cpp)
     target_link_libraries(test_led_channel PRIVATE harness)
     add_test(NAME led_channel_blink COMMAND test_led_channel)
+
+    add_executable(test_midi_out tests/test_midi_out.cpp)
+    target_link_libraries(test_midi_out PRIVATE harness)
+    add_test(NAME midi_note_transmission COMMAND test_midi_out)
 
     add_executable(test_capture tests/test_capture.cpp)
     target_link_libraries(test_capture PRIVATE harness)

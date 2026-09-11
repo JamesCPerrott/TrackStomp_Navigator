@@ -283,6 +283,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
   **The PID is a placeholder (`0xFFFE`) until an allocation is merged into `raspberrypi/usb-pid`.** Note this in `PROGRESS.md` so it is not forgotten.
 
 ### T16 — midi-output
+- **Status:** complete
 - **Branch:** `task/T16-midi-output`
 - **Commit:** `T16: implement MIDI note transmission with runtime-owned channel`
 - **Depends on:** T15
