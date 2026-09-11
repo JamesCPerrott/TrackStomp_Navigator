@@ -228,3 +228,29 @@ None. Criteria 15c (pending discarded) and MIDI note numbers wait for T07/T08.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T06 — chord-detection — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T06-chord-detection
+**Commit:** (this commit)
+**Criteria covered:** 22, 23, 24, 25, 26, 27, 29, 29b (ButtonEvent layer)
+**Tests:** 1 added (chord_detection); 24 and 26 written first; 7 total, all green
+
+**Done:**
+6+9 overlap flags `chord_overlap` for the rest of each press; neither taps.
+Timer starts at the second press (`candidate_since`) and needs `CHORD_HOLD_MS`
+of continuous debounced overlap. Release of either clears it; re-form starts
+fresh. 6 and 9 skip T05 hold-suppression while `chord_armed`. A hold of 8
+disarms the chord (29b). Completed chord emits `ChordHold` (Q003).
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None. Setup entry and chord lockout remain T09/T07.
+
+**Questions raised:** Q003 [ASSUMED] — single ChordHold with id 6.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+

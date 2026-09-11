@@ -123,6 +123,28 @@ filter.
 
 ---
 
+## Q003 — [ASSUMED] — T06
+
+**Task:** T06 chord-detection
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+A completed chord emits a single `ButtonEventKind::ChordHold` with
+`id = CHORD_BUTTON_A` (6). Chord timer start is the second button's
+`candidate_since`, matching Q002. Debounced bounce does not clear the timer.
+
+**Reasoning:**
+The public event grammar already has `ChordHold`. One event is enough for T09
+to enter setup; the pair is identified by kind, not by emitting two ids.
+Lockout on that event is T07.
+
+**Cost to reverse:** low — change the `queue_push` id, or emit two events.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._
