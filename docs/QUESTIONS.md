@@ -367,6 +367,32 @@ written, or start USB in T15.
 
 ---
 
+## Q013 — [ASSUMED] — T16
+
+**Task:** T16 midi-output
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+`midi_out` owns the wire channel and sends a full 3-byte Note On via
+`tud_midi_stream_write`. The sequencer still does not call MIDI
+(PRD §12.1); T20 will drain `Command` into `midi_out_send`. SETUP/LOCKED
+emit no extra Commands already, so midi_out does not gate on those
+states. Sequencer RAM `current_channel` remains for setup UI events
+until T19/T20 copy it into midi_out on setup exit.
+
+**Reasoning:**
+A dual Command queue (like Q005) would be needed if midi_out consumed
+`sequencer_poll_command` inside the harness pipeline. Direct `midi_out_send`
+keeps T08–T09 tests green.
+
+**Cost to reverse:** low — dual-queue drain, or have T20 call
+`midi_out_set_channel` from SetupExit.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._
