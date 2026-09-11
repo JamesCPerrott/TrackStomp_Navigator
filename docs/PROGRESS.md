@@ -541,3 +541,32 @@ None.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T18 — config-store-read — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T18-config-store-read
+**Commit:** (this commit)
+**Criteria covered:** 39, 40, 54 (host: blank/CRC/magic/range fallback to
+channel 1 and no write; on-device erase/boot blink is T22)
+**Tests:** 1 added (config_store_read), 16 total, all green. pico2 `.uf2`
+produced. Linker FLASH length is 4 MB minus 4 KB.
+
+**Done:**
+Last 4 KB excluded via `pico_override_flash_size`. `ConfigRecord` matches
+§10.1. Boot reads, validates magic/version/CRC32/channel, falls back to
+channel 1, and does not write (Q015–Q017). Host covers erased, corrupt
+CRC, bad magic, out-of-range, unknown version, and a valid channel 8.
+
+**Tried and abandoned:**
+A host-only static constructor to fill the fake sector with `0xFF` —
+`cert-err58-cpp` rejects throwing static initializers.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q015 [ASSUMED] CRC-32/ISO-HDLC; Q016 [ASSUMED]
+linker override as offset; Q017 [ASSUMED] boot apply in `main`.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
