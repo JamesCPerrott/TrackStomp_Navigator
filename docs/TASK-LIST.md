@@ -231,6 +231,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **Done when:** `PENDING` slow-flashes at a 1000 ms period. Lockout fast-flashes at 100 ms. Every transmitted cue produces exactly one `CUE_FLASH_MS` flash, **preceded by a forced `CUE_FLASH_GAP_MS` off gap whenever the lamp is currently lit**. Solid on appears nowhere in performance mode. Test 47 (two rapid taps of 10 must not merge into one pulse) is the one that catches a missing gap.
 
 ### T12 — led-chord-progress
+- **Status:** complete
 - **Branch:** `task/T12-led-chord-progress`
 - **Commit:** `T12: implement chord progress LED blackout and flash`
 - **Depends on:** T11

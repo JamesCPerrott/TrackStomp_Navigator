@@ -295,6 +295,14 @@ bool buttons_accepted_pressed(uint8_t id) {
     return g_slots[button_index(id)].accepted_pressed;
 }
 
+bool buttons_chord_armed() {
+    return g_chord_armed;
+}
+
+uint32_t buttons_chord_start() {
+    return g_chord_start;
+}
+
 #ifndef HOST_TEST
 uint32_t buttons_gpio_levels() {
     return 0xFFFFFFFFU;
