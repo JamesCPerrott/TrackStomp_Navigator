@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-// Bounce-injection: chatter of 5–20 edges over 10 ms must settle to one press.
+// Bounce-injection: chatter of 5–20 edges over 10 ms must settle to one tap.
 int main() {
     const uint8_t trains[] = {5, 8, 12, 20};
     for (const uint8_t transitions : trains) {
@@ -15,6 +15,9 @@ int main() {
         REQUIRE(harness_gpio_transition_count(1) >= transitions);
         REQUIRE_NO_BUTTON_EVENTS();
 
+        harness_advance(DEBOUNCE_MS);
+        REQUIRE_NO_BUTTON_EVENTS();
+        harness_release(1);
         harness_advance(DEBOUNCE_MS);
         REQUIRE_BUTTON_EVENTS(ButtonEvent{1, ButtonEventKind::Tap});
     }

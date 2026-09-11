@@ -97,6 +97,32 @@ and update T04's Tap-on-press assertions.
 
 ---
 
+## Q002 — [ASSUMED] — T05
+
+**Task:** T05 tap-hold-classification
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+Hold duration is measured from `candidate_since` (the start of the stable
+debounce window), so `harness_press(1); harness_advance_to(HOLD_MS)` fires
+`HOLD` at 2000. Hold is not armed while a release debounce is in progress, so
+a release in the last `DEBOUNCE_MS` of the window still classifies as `TAP`.
+
+**Reasoning:**
+PRD §6.3 says a press is classified at the hold threshold or on release, and
+T04 requires classification to consume debounced state only. Using the start of
+the stable interval matches the timing exemplar. Ignoring a hold tick while the
+candidate is released avoids promoting a late tap into a hold across the 20 ms
+filter.
+
+**Cost to reverse:** low — change `press_time` assignment and the
+`candidate_pressed` guard in `classify_hold`.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._
