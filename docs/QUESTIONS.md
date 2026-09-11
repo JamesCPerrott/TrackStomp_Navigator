@@ -73,7 +73,27 @@ _None yet._
 
 ## Assumed
 
-_None yet._
+## Q001 — [ASSUMED] — T04
+
+**Task:** T04 debounce
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+A debounced press (rising edge after `DEBOUNCE_MS` of stability) emits
+`ButtonEventKind::Tap`. Releases emit nothing. T05 owns tap/hold classification
+and will change when `Tap` / `Hold` are produced.
+
+**Reasoning:**
+PRD §12.1 only lists TAP, HOLD, and CHORD_HOLD. Adding a Press kind would be a
+new event in the public grammar. The bounce exemplar asks for one press event
+after the train settles and does not release the button, so the rising edge is
+the observable T04 can emit with the existing enum.
+
+**Cost to reverse:** low — T05 will replace the emission site in `buttons_scan`
+and update T04's Tap-on-press assertions.
+
+**ANSWER (only if overriding):**
 
 ---
 

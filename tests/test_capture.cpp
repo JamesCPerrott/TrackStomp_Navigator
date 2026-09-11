@@ -31,7 +31,7 @@ int main() {
     REQUIRE_NO_COMMANDS();
     REQUIRE_COMMANDS();
     REQUIRE_NO_UI_EVENTS();
-    REQUIRE_NO_BUTTON_EVENTS();
+    REQUIRE_BUTTON_EVENTS(ButtonEvent{2, ButtonEventKind::Tap});
     REQUIRE_LAMP(false);
     return 0;
 }

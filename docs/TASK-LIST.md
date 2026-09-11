@@ -140,6 +140,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 ## Phase 2 — Input layer
 
 ### T04 — debounce
+- **Status:** complete
 - **Branch:** `task/T04-debounce`
 - **Commit:** `T04: implement per-button debounce filter`
 - **Depends on:** T03

@@ -30,6 +30,8 @@ if (BUILD_HOST_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/harness
     )
     target_link_libraries(harness PUBLIC firmware_host)
+    # gpio_host.cpp supplies buttons_gpio_levels(); buttons_scan consumes it.
+    target_link_libraries(firmware_host PUBLIC harness)
 
     add_executable(test_cue_table
         tests/test_cue_table.cpp
@@ -45,6 +47,10 @@ if (BUILD_HOST_TESTS)
     add_executable(test_bounce tests/test_bounce.cpp)
     target_link_libraries(test_bounce PRIVATE harness)
     add_test(NAME bounce_injection COMMAND test_bounce)
+
+    add_executable(test_debounce tests/test_debounce.cpp)
+    target_link_libraries(test_debounce PRIVATE harness)
+    add_test(NAME debounce_filter COMMAND test_debounce)
 
     add_executable(test_timing tests/test_timing.cpp)
     target_link_libraries(test_timing PRIVATE harness)
