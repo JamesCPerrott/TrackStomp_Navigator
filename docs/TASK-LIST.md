@@ -265,6 +265,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **Done when:** Buttons 1–10 map to GP6–GP15 and are read with a single masked `gpio_get_all()`. **Internal pull-ups only — no pull-downs anywhere**, per the RP2350 erratum noted in §11.2. Active-low. The debounce layer from T04 consumes this unchanged.
 
 ### T15 — usb-midi-descriptors
+- **Status:** complete
 - **Branch:** `task/T15-usb-midi-descriptors`
 - **Commit:** `T15: add MIDI-only USB descriptors with no CDC or MSC interfaces`
 - **Depends on:** T14
