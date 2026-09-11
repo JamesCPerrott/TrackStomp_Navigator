@@ -18,7 +18,9 @@ Each task specifies:
 
 ### Git workflow, per task
 
-Dependencies are linear, so branches **stack**. Branch each task from its predecessor's branch, not from `master`. Only T01 branches from `master`.
+Dependencies are linear, so branches **stack**. Branch each task from its predecessor's branch, not from `master`.
+
+**Exception — T04 branches from `master`.** T01, T02, and T03 were completed interactively and have already been merged, and `master` additionally carries `.github/workflows/ci.yml`, which T03's branch does not. Branching T04 from T03's branch would leave the entire stack without CI. From T05 onward, stacking resumes normally: T05 from T04's branch, T06 from T05's, and so on.
 
 ```
 git checkout task/T04-debounce          # the predecessor's branch

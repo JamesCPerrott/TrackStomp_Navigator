@@ -48,7 +48,9 @@ Implement only the task currently in scope. Do not modify, implement, or refacto
 
 ## Branching
 
-Dependencies are linear, so branches stack. Branch each task from its **predecessor's branch**, not from `master`:
+Dependencies are linear, so branches stack. Branch each task from its **predecessor's branch**, not from `master`.
+
+**T04 is the exception: branch it from `master`.** T01–T03 are merged and `master` also carries `.github/workflows/ci.yml`, which T03's branch lacks. From T05 onward, stack normally:
 
 ```
 git checkout task/T04-debounce          # the predecessor
