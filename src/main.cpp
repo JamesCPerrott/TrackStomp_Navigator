@@ -35,6 +35,9 @@ int main() {
     const uint8_t channel = config_store_read_channel();
     midi_out_set_channel(channel);
     ui_indicate_channel(channel);
+#ifdef DEBUG_UART
+    stdio_init_all();
+#endif
     static_cast<void>(CUE_TABLE);
     for (;;) {
         tud_task();
