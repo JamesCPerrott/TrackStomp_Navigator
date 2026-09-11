@@ -319,6 +319,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **Done when:** The last 4 KB flash sector is reserved and excluded from the linker's image region. `ConfigRecord` matches §10.1. Boot validates magic, version, CRC32, and channel range; any failure falls back to channel 1. **Nothing is ever written at boot** — a factory-fresh unit with erased flash reads as channel 1 and leaves the sector untouched. Host tests cover blank, corrupt-CRC, bad-magic, and out-of-range channel.
 
 ### T19 — config-store-write
+- **Status:** complete
 - **Branch:** `task/T19-config-store-write`
 - **Commit:** `T19: implement config sector write on setup exit with no-op skip`
 - **Depends on:** T18
