@@ -293,6 +293,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **Done when:** Cues transmit as Note On, velocity 1, on the channel owned solely by the MIDI layer. No Note Off (`SEND_NOTE_OFF` is `false`). No output while in `SETUP` or `LOCKED`. No running-status optimisation. Repeated identical cues are always sent.
 
 ### T17 — led-driver
+- **Status:** complete
 - **Branch:** `task/T17-led-driver`
 - **Commit:** `T17: drive the panel and onboard status LEDs from the pattern engine`
 - **Depends on:** T16

@@ -517,3 +517,27 @@ None.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T17 — led-driver — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T17-led-driver
+**Commit:** (this commit)
+**Criteria covered:** —
+**Tests:** 0 added, 15 total, all green. pico2 `.uf2` produced.
+
+**Done:**
+Panel GP16 (4 mA) and onboard GP25 are driven from the same `ui_lamp`
+value, high = on, no inversion. `ui_led_init` at boot (Q014). Host path
+unchanged. Hardware confirmation that both LEDs track is T22.
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q014 [ASSUMED] — drive from `ui_tick`; loop is T20.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
