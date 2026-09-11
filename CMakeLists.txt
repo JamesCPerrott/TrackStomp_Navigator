@@ -60,6 +60,14 @@ if (BUILD_HOST_TESTS)
     target_link_libraries(test_tap_hold PRIVATE harness)
     add_test(NAME tap_hold_classification COMMAND test_tap_hold)
 
+    add_executable(test_chord tests/test_chord.cpp)
+    target_link_libraries(test_chord PRIVATE harness)
+    add_test(NAME chord_detection COMMAND test_chord)
+
+    add_executable(test_lockout tests/test_lockout.cpp)
+    target_link_libraries(test_lockout PRIVATE harness)
+    add_test(NAME hold_lockout COMMAND test_lockout)
+
     add_executable(test_capture tests/test_capture.cpp)
     target_link_libraries(test_capture PRIVATE harness)
     add_test(NAME capture_buffers COMMAND test_capture)

@@ -123,6 +123,50 @@ filter.
 
 ---
 
+## Q003 — [ASSUMED] — T06
+
+**Task:** T06 chord-detection
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+A completed chord emits a single `ButtonEventKind::ChordHold` with
+`id = CHORD_BUTTON_A` (6). Chord timer start is the second button's
+`candidate_since`, matching Q002. Debounced bounce does not clear the timer.
+
+**Reasoning:**
+The public event grammar already has `ChordHold`. One event is enough for T09
+to enter setup; the pair is identified by kind, not by emitting two ids.
+Lockout on that event is T07.
+
+**Cost to reverse:** low — change the `queue_push` id, or emit two events.
+
+**ANSWER (only if overriding):**
+
+---
+
+## Q004 — [ASSUMED] — T07
+
+**Task:** T07 hold-lockout
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+Lockout lives entirely in `input`. After `LOCKED(CHORD)` ends (both 6 and 9
+released) the module returns to unlocked; it does not enter SETUP. T09 owns
+setup entry from `ChordHold`.
+
+**Reasoning:**
+PRD §6.4 lockout is an input concern. SETUP is T09. Emitting `ChordHold` at
+threshold (Q003) is enough for the sequencer to enter setup later.
+
+**Cost to reverse:** low — T09 can keep lockout extended until setup-exit if
+needed.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._
