@@ -267,6 +267,31 @@ report lockout duration some other way.
 
 ---
 
+## Q009 — [ASSUMED] — T12
+
+**Task:** T12 led-chord-progress
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+The chord-progress layer polls `buttons_chord_armed()` and
+`buttons_chord_start()` and phases the blackout/flash from that start time
+(the same clock as the 5 s chord timer). No new UiEvent kind.
+
+**Reasoning:**
+Chord detection lives in input (PRD §12.1). The sequencer never sees a
+part-formed chord, so it cannot emit start/abort/re-form events. Polling
+is the same pattern as Q006/Q008 and is not GPIO. The start timestamp is
+the second member's `press_time`, so re-form blackout is 500 ms from the
+re-press, not from debounce acceptance.
+
+**Cost to reverse:** low — add chord UiEvents, or have the sequencer poll
+and forward.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._

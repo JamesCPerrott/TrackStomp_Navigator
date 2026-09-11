@@ -73,7 +73,14 @@ void apply_event(const UiEvent& event, uint32_t now) {
 // Seven-level stack from PRD §11.4.1. Priorities 1 and 2 are T12–T13.
 bool resolve_stack(uint32_t now) {
     // 1: channel blink (T13)
-    // 2: chord progress (T12)
+    if (buttons_chord_armed()) {
+        const uint32_t start   = buttons_chord_start();
+        const uint32_t elapsed = now - start;
+        if (elapsed < CHORD_LED_DELAY_MS) {
+            return false; // 2: blackout
+        }
+        return flash_on(now, start + CHORD_LED_DELAY_MS, CHORD_LED_FLASH_MS);
+    }
     if (g_setup) {
         return true; // 3: setup solid on
     }
