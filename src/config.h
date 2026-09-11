@@ -18,6 +18,8 @@ constexpr uint8_t BUTTON_GPIO_BASE     = 6;
 constexpr uint8_t BUTTON_COUNT         = 10;
 constexpr uint8_t CHORD_BUTTON_A       = 6;
 constexpr uint8_t CHORD_BUTTON_B       = 9;
+constexpr uint8_t LED_PANEL_GPIO       = 16; // NPN switch, high = on
+constexpr uint8_t LED_ONBOARD_GPIO     = 25; // Pico 2 onboard LED mirror
 
 // LED timing
 constexpr uint32_t CHORD_LED_DELAY_MS   = 500; // silent window at chord start
