@@ -292,6 +292,32 @@ and forward.
 
 ---
 
+## Q010 — [ASSUMED] — T13
+
+**Task:** T13 led-channel-blink
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+The blink primitive is started by `SetupChannel`, `SetupExit`, and
+`ui_indicate_channel` (boot, from `main`). It is not started on
+`harness_reset` / clock wrap. `Sent` and `Locked` abort it. `SetupEnter`
+also aborts so entry stays solid while 6 and 9 are still held.
+
+**Reasoning:**
+Starting a boot blink on every sequencer/UI reset would occupy priority 1
+(including the 400 ms off gap) and hide PENDING in T11 tests. Cue abort
+covers both tap (`Sent`) and hold (`Locked`) transmissions. The same
+elapsed-time primitive is reused for all four sites; “return to” is
+whatever sits beneath on the stack.
+
+**Cost to reverse:** low — emit a dedicated blink UiEvent, or start boot
+from sequencer init.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._
