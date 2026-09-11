@@ -437,3 +437,29 @@ on harness reset.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T14 — gpio-input — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T14-gpio-input
+**Commit:** (this commit)
+**Criteria covered:** —
+**Tests:** 0 added, 14 total, all green. pico2 `.uf2` produced.
+
+**Done:**
+GP6–GP15 initialised as inputs with internal pull-ups only (no
+pull-downs). `buttons_gpio_levels()` returns a single masked
+`gpio_get_all()`. Host path unchanged (`gpio_host.cpp`). `buttons_init()`
+at boot (Q011). Hardware confirmation of the switches is T22.
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q011 [ASSUMED] — `buttons_init` at boot, scan loop
+still T20.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
