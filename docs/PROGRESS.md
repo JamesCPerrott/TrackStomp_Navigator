@@ -355,3 +355,30 @@ None.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T11 — led-performance-patterns — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T11-led-performance-patterns
+**Commit:** (this commit)
+**Criteria covered:** 45, 46, 47, 48, 49
+**Tests:** 1 added (led_performance_patterns), 12 total, all green
+
+**Done:**
+Pending slow-flashes at 1000 ms (`PENDING_FLASH_MS` on/off). Lockout
+fast-flashes at 100 ms until the locked button's accepted press ends (Q008).
+Every `Sent` cue is one `CUE_FLASH_MS` pulse, with a forced
+`CUE_FLASH_GAP_MS` off gap when the lamp is already lit. Hold uses `Locked`
+only, so lockout outranks cue flash. Solid on remains setup-only.
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q008 [ASSUMED] — lockout flash duration via
+`buttons_accepted_pressed`.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+

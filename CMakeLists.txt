@@ -80,6 +80,10 @@ if (BUILD_HOST_TESTS)
     target_link_libraries(test_led_engine PRIVATE harness)
     add_test(NAME led_pattern_engine COMMAND test_led_engine)
 
+    add_executable(test_led_perf tests/test_led_perf.cpp)
+    target_link_libraries(test_led_perf PRIVATE harness)
+    add_test(NAME led_performance_patterns COMMAND test_led_perf)
+
     add_executable(test_capture tests/test_capture.cpp)
     target_link_libraries(test_capture PRIVATE harness)
     add_test(NAME capture_buffers COMMAND test_capture)
