@@ -137,3 +137,39 @@ check and kept self-contained for T03 to restructure.
 
 **Defects noted in earlier tasks (not fixed):**
 None.
+
+## T03 — host-test-harness — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T03-host-test-harness
+**Commit:** (this commit)
+**Criteria covered:** —
+**Tests:** 3 added (bounce, timing, capture) plus existing cue-table, 4 total, green
+
+**Done:**
+Host preset `cmake --preset host` builds `input/`, `sequencer/`, and `ui/` with no Pico
+SDK (`firmware_host` + `harness`). Fake 1 ms clock: `advance`/`advance_to` run
+`buttons_scan` → `sequencer_tick` → `ui_tick` each step; `press`/`release` process the
+current timestamp without moving the clock. Logical buttons 1–10, bounce injection,
+capture buffers for Command / UiEvent / ButtonEvent / lamp. API in
+`docs/TEST-HARNESS.md`. Three exemplar tests. Negative control: `g_now_ms += 2`
+in `harness_advance` made `timing_deadline` fail
+(`harness_now_ms() == HOLD_MS - 1U`), then reverted. Target build still links.
+clang-format and clang-tidy clean on changed files (`-p build-host`).
+
+**Tried and abandoned:**
+- Lowercase `0xFFFFFFFFu` suffix — `readability-uppercase-literal-suffix`; switched to
+  `0xFFFFFFFFU`.
+- Relying on transitive includes for `uint32_t` / `std::vector` —
+  `misc-include-cleaner`; added direct includes in the `.cpp` files.
+
+**Contradicts PRD:**
+None. Stub headers now declare the tick/poll/event types the harness needs; bodies
+remain no-ops. `buttons_poll_event` is the test drain; T08 must not consume that
+queue without leaving a copy if T04–T07 ButtonEvent assertions are to stay green.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
