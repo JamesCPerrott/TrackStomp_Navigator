@@ -304,3 +304,28 @@ None. SETUP on ChordHold is T09.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T09 — setup-mode-state — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T09-setup-mode-state
+**Commit:** (this commit)
+**Criteria covered:** 28, 30, 31, 32, 33, 35, 38
+**Tests:** 1 added (setup_mode_state), 10 total, all green
+
+**Done:**
+ChordHold discards PENDING and enters SETUP. Cues suppressed. Taps 1–10 set
+`pending_channel`. Holds do nothing (no lockout). After the entry pair is
+released, a 6+9 overlap-then-release exits unconditionally. Inactivity of
+`SETUP_TIMEOUT_MS` commits. RAM-only channel; no flash (Q006).
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None. Flash write on exit is T19.
+
+**Questions raised:** Q006 [ASSUMED] — setup notify/poll on input.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+

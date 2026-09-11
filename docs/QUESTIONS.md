@@ -190,6 +190,33 @@ ChordHold/hold UiEvent kinds.
 
 ---
 
+## Q006 — [ASSUMED] — T09
+
+**Task:** T09 setup-mode-state
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+Sequencer notifies input of SETUP via `buttons_set_setup_active` so holds
+emit no lockout and the 5 s chord threshold is ignored. Setup-exit overlap
+is detected by polling `buttons_accepted_pressed` for 6 and 9 after the
+entry pair has been released. Channel is RAM-only (`pending_channel` /
+`current_channel`); no flash.
+
+**Reasoning:**
+Input does not know SETUP (Q004) but must suppress hold lockout and a
+second ChordHold while in the mode (PRD §8.3). A new ButtonEvent kind for
+overlap-release would break T06 abort silence. Polling accepted state is
+not GPIO. Exit is armed only after both entry feet are off so the entry
+release does not immediately leave SETUP.
+
+**Cost to reverse:** low — change the notify/poll API, or emit a dedicated
+exit event.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._
