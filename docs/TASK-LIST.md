@@ -162,6 +162,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
   **Button 8 is the only suffix button with a hold** (Mute MIDI, note 32). Check it is not accidentally grouped with 6, 7, and 9 in the suppression branch — test 15d asserts the other three still do nothing.
 
 ### T06 — chord-detection
+- **Status:** complete
 - **Branch:** `task/T06-chord-detection`
 - **Commit:** `T06: implement 6+9 chord detection with strict continuous hold timer`
 - **Depends on:** T05
