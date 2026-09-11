@@ -76,6 +76,10 @@ if (BUILD_HOST_TESTS)
     target_link_libraries(test_setup PRIVATE harness)
     add_test(NAME setup_mode_state COMMAND test_setup)
 
+    add_executable(test_led_engine tests/test_led_engine.cpp)
+    target_link_libraries(test_led_engine PRIVATE harness)
+    add_test(NAME led_pattern_engine COMMAND test_led_engine)
+
     add_executable(test_capture tests/test_capture.cpp)
     target_link_libraries(test_capture PRIVATE harness)
     add_test(NAME capture_buffers COMMAND test_capture)
