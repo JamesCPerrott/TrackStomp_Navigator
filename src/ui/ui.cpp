@@ -4,6 +4,10 @@
 #include "input/buttons.h"
 #include "sequencer/sequencer.h"
 
+#ifndef HOST_TEST
+#include "hardware/gpio.h"
+#endif
+
 #include <cstdint>
 
 namespace {
@@ -169,6 +173,10 @@ void ui_tick(uint32_t now) {
     }
 
     g_lamp = resolve_stack(now);
+#ifndef HOST_TEST
+    gpio_put(LED_PANEL_GPIO, g_lamp);
+    gpio_put(LED_ONBOARD_GPIO, g_lamp);
+#endif
 }
 
 bool ui_lamp() {
@@ -177,4 +185,17 @@ bool ui_lamp() {
 
 void ui_indicate_channel(uint8_t n) {
     start_blink(n, g_last_now);
+}
+
+void ui_led_init() {
+#ifndef HOST_TEST
+    gpio_init(LED_PANEL_GPIO);
+    gpio_set_dir(LED_PANEL_GPIO, GPIO_OUT);
+    gpio_set_drive_strength(LED_PANEL_GPIO, GPIO_DRIVE_STRENGTH_4MA);
+    gpio_put(LED_PANEL_GPIO, false);
+
+    gpio_init(LED_ONBOARD_GPIO);
+    gpio_set_dir(LED_ONBOARD_GPIO, GPIO_OUT);
+    gpio_put(LED_ONBOARD_GPIO, false);
+#endif
 }

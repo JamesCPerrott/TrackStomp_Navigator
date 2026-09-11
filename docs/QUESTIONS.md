@@ -393,6 +393,28 @@ keeps T08–T09 tests green.
 
 ---
 
+## Q014 — [ASSUMED] — T17
+
+**Task:** T17 led-driver
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+`ui_led_init()` at boot sets GP16 and GP25 as outputs, 4 mA drive on
+GP16 only, both low. Each `ui_tick` writes `g_lamp` to both pins with no
+inversion. Host is a no-op. The main scan/tick loop remains T20, so the
+pins stay off until then.
+
+**Reasoning:**
+Thin shim in the existing UI module; no new layer. Pattern logic stays in
+`resolve_stack`. On-device tracking of both LEDs is T22.
+
+**Cost to reverse:** low — split a `led.cpp` driver, or set GP25 drive too.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._
