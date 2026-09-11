@@ -463,3 +463,31 @@ still T20.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T15 — usb-midi-descriptors — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T15-usb-midi-descriptors
+**Commit:** (this commit)
+**Criteria covered:** 1, 2 (build only; host enumeration is hardware)
+**Tests:** 0 added, 14 total, all green. pico2 `.uf2` produced.
+
+**Done:**
+`CFG_TUD_ENABLED 1`, MIDI class only (CDC/MSC/HID/vendor off). Device
+identity from PRD §9.1: VID `0x2E8A`, PID `0xFFFE` (placeholder until a
+`raspberrypi/usb-pid` allocation is merged), `bcdDevice` `0x0100`,
+strings `TrackStomp` / `TrackStomp Navigator` / 16-hex serial from
+`pico_get_unique_board_id_string()` / jack `Navigator Cues`. One virtual
+cable, IN plus TinyUSB-required OUT (Q012).
+
+**Tried and abandoned:**
+`TUD_MIDI_DESCRIPTOR` — jack string index is hardcoded 0, so the port
+would not be named `Navigator Cues`.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q012 [ASSUMED] — OUT endpoint kept; USB task is T20.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+

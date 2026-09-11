@@ -342,6 +342,31 @@ fold it into T20.
 
 ---
 
+## Q012 — [ASSUMED] — T15
+
+**Task:** T15 usb-midi-descriptors
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+MIDI descriptors use TinyUSB's AC + MS pair (standard USB-MIDI 1.0) with
+one virtual cable. An OUT bulk endpoint is declared because the TinyUSB
+MIDI template requires it; PRD §9.2 allows that. The embedded IN jack
+string is `Navigator Cues` via `TUD_MIDI_DESC_JACK_DESC`, not
+`TUD_MIDI_DESCRIPTOR` (which hardcodes jack string index 0).
+`tusb_init` / `tud_task` remain T20. PID is the `0xFFFE` placeholder.
+
+**Reasoning:**
+A single Audio/MIDI function is “MIDI only” — no CDC, MSC, or vendor.
+Host enumeration is hardware (criteria 1, 2).
+
+**Cost to reverse:** low — drop the OUT endpoint if a custom descriptor is
+written, or start USB in T15.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._

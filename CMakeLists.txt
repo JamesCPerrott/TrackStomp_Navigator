@@ -139,6 +139,7 @@ else()
 
     target_link_libraries(trackstomp_navigator
         pico_stdlib
+        pico_unique_id
         tinyusb_device
         hardware_flash
         hardware_sync
