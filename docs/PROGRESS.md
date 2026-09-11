@@ -200,3 +200,31 @@ None.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T05 — tap-hold-classification — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T05-tap-hold-classification
+**Commit:** (this commit)
+**Criteria covered:** 13, 14, 15, 15b, 15d, 18 (ButtonEvent layer; notes/lockout are T08/T07)
+**Tests:** 1 added (tap_hold_classification), bounce/debounce/timing updated, 6 total, all green
+
+**Done:**
+Classification on debounced edges: release before `HOLD_MS` emits `TAP`.
+Hold-capable buttons 1–5, 8, 10 emit `HOLD` at the threshold and suppress the
+release. Buttons 6, 7, and 9 held past `HOLD_MS` emit nothing (15d written
+first). Button 8 is not grouped with them. Chord waiver for 6+9 is T06.
+Branched from `master` because T04 was already merged and the task branch
+deleted.
+
+**Tried and abandoned:**
+- `ButtonSlot` field order bools-then-uint32s — `clang-analyzer-optin.performance.Padding`
+  failed as an error; reordered timestamps first.
+
+**Contradicts PRD:**
+None. Criteria 15c (pending discarded) and MIDI note numbers wait for T07/T08.
+
+**Questions raised:** Q002 [ASSUMED] — hold clock from `candidate_since`.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+

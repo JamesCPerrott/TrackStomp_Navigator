@@ -56,6 +56,10 @@ if (BUILD_HOST_TESTS)
     target_link_libraries(test_timing PRIVATE harness)
     add_test(NAME timing_deadline COMMAND test_timing)
 
+    add_executable(test_tap_hold tests/test_tap_hold.cpp)
+    target_link_libraries(test_tap_hold PRIVATE harness)
+    add_test(NAME tap_hold_classification COMMAND test_tap_hold)
+
     add_executable(test_capture tests/test_capture.cpp)
     target_link_libraries(test_capture PRIVATE harness)
     add_test(NAME capture_buffers COMMAND test_capture)

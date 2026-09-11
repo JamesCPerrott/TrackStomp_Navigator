@@ -150,6 +150,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **Done when:** Per-button independent debounce accepts a level change only after `DEBOUNCE_MS` of stability. Tests inject bounce trains of 5–20 transitions over 10 ms and assert exactly one press event. All downstream logic consumes debounced state only.
 
 ### T05 — tap-hold-classification
+- **Status:** complete
 - **Branch:** `task/T05-tap-hold-classification`
 - **Commit:** `T05: implement tap and hold classification with per-button hold capability`
 - **Depends on:** T04
