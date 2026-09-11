@@ -22,10 +22,13 @@ bool g_exit_ready         = false;
 bool g_exit_overlap       = false;
 Command g_commands[kQueueSize]{};
 UiEvent g_ui_events[kQueueSize]{};
-std::size_t g_cmd_head  = 0;
-std::size_t g_cmd_count = 0;
-std::size_t g_ui_head   = 0;
-std::size_t g_ui_count  = 0;
+UiEvent g_ui_engine[kQueueSize]{};
+std::size_t g_cmd_head     = 0;
+std::size_t g_cmd_count    = 0;
+std::size_t g_ui_head      = 0;
+std::size_t g_ui_count     = 0;
+std::size_t g_ui_eng_head  = 0;
+std::size_t g_ui_eng_count = 0;
 
 bool is_prefix(uint8_t id) {
     return id >= 1U && id <= 5U;
@@ -45,12 +48,17 @@ void push_command(uint8_t note) {
 }
 
 void push_ui(UiEventKind kind, uint8_t value) {
-    if (g_ui_count >= kQueueSize) {
-        return;
+    const UiEvent event{kind, value};
+    if (g_ui_count < kQueueSize) {
+        const std::size_t index = (g_ui_head + g_ui_count) % kQueueSize;
+        g_ui_events[index]      = event;
+        g_ui_count += 1U;
     }
-    const std::size_t index = (g_ui_head + g_ui_count) % kQueueSize;
-    g_ui_events[index]      = UiEvent{kind, value};
-    g_ui_count += 1U;
+    if (g_ui_eng_count < kQueueSize) {
+        const std::size_t index = (g_ui_eng_head + g_ui_eng_count) % kQueueSize;
+        g_ui_engine[index]      = event;
+        g_ui_eng_count += 1U;
+    }
 }
 
 bool lookup_note(CueTrigger trigger, uint8_t button_a, uint8_t button_b, uint8_t& note) {
@@ -103,11 +111,13 @@ void reset_sequencer() {
     g_current_channel = DEFAULT_MIDI_CHANNEL;
     g_pending_channel = DEFAULT_MIDI_CHANNEL;
     enter_idle();
-    g_deadline  = 0;
-    g_cmd_head  = 0;
-    g_cmd_count = 0;
-    g_ui_head   = 0;
-    g_ui_count  = 0;
+    g_deadline     = 0;
+    g_cmd_head     = 0;
+    g_cmd_count    = 0;
+    g_ui_head      = 0;
+    g_ui_count     = 0;
+    g_ui_eng_head  = 0;
+    g_ui_eng_count = 0;
 }
 
 void resolve_pair(uint8_t prefix, uint8_t suffix) {
@@ -251,5 +261,15 @@ bool sequencer_poll_ui_event(UiEvent* out) {
     *out      = g_ui_events[g_ui_head];
     g_ui_head = (g_ui_head + 1U) % kQueueSize;
     g_ui_count -= 1U;
+    return true;
+}
+
+bool sequencer_poll_ui_event_for_engine(UiEvent* out) {
+    if (out == nullptr || g_ui_eng_count == 0U) {
+        return false;
+    }
+    *out          = g_ui_engine[g_ui_eng_head];
+    g_ui_eng_head = (g_ui_eng_head + 1U) % kQueueSize;
+    g_ui_eng_count -= 1U;
     return true;
 }
