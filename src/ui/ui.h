@@ -1,4 +1,9 @@
 #ifndef UI_H
 #define UI_H
 
+#include <cstdint>
+
+void ui_tick(uint32_t now);
+bool ui_lamp();
+
 #endif

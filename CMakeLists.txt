@@ -12,19 +12,47 @@ if (BUILD_HOST_TESTS)
 
     enable_testing()
 
+    add_library(firmware_host STATIC
+        src/input/buttons.cpp
+        src/sequencer/sequencer.cpp
+        src/ui/ui.cpp
+    )
+    target_include_directories(firmware_host PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    target_compile_definitions(firmware_host PUBLIC HOST_TEST)
+
+    add_library(harness STATIC
+        tests/harness/harness.cpp
+        tests/harness/gpio_host.cpp
+    )
+    target_include_directories(harness PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/harness
+    )
+    target_link_libraries(harness PUBLIC firmware_host)
+
     add_executable(test_cue_table
         tests/test_cue_table.cpp
     )
-
     target_include_directories(test_cue_table PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
-
     target_compile_definitions(test_cue_table PRIVATE
         "PRD_PATH=\"${CMAKE_SOURCE_DIR}/docs/PRD.md\""
     )
-
     add_test(NAME cue_table_matches_prd COMMAND test_cue_table)
+
+    add_executable(test_bounce tests/test_bounce.cpp)
+    target_link_libraries(test_bounce PRIVATE harness)
+    add_test(NAME bounce_injection COMMAND test_bounce)
+
+    add_executable(test_timing tests/test_timing.cpp)
+    target_link_libraries(test_timing PRIVATE harness)
+    add_test(NAME timing_deadline COMMAND test_timing)
+
+    add_executable(test_capture tests/test_capture.cpp)
+    target_link_libraries(test_capture PRIVATE harness)
+    add_test(NAME capture_buffers COMMAND test_capture)
 else()
     set(PICO_BOARD pico2)
     set(PICOTOOL_FETCH_FROM_GIT_PATH $ENV{HOME}/pico/picotool-build)

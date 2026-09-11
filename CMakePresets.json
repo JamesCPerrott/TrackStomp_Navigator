@@ -1,0 +1,16 @@
+{
+    "version": 4,
+    "configurePresets": [
+        {
+            "name": "host",
+            "displayName": "Host tests",
+            "description": "Build input/, sequencer/, and ui/ for the host with no Pico SDK",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build-host",
+            "cacheVariables": {
+                "BUILD_HOST_TESTS": "ON",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+            }
+        }
+    ]
+}
