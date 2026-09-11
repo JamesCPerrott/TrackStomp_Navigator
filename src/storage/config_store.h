@@ -19,6 +19,7 @@ static_assert(sizeof(ConfigRecord) == 12U);
 static_assert(offsetof(ConfigRecord, crc32) == 8U);
 
 uint8_t config_store_read_channel();
+void config_store_write_channel(uint8_t channel);
 
 #ifdef HOST_TEST
 void config_store_host_erase();

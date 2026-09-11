@@ -8,6 +8,7 @@
 
 #ifndef HOST_TEST
 #include "hardware/flash.h"
+#include "hardware/sync.h"
 #endif
 
 namespace {
@@ -51,6 +52,13 @@ uint32_t g_write_count = 0;
 void fill_erased() {
     std::memset(&g_sector, 0xFF, sizeof(g_sector));
 }
+#else
+void __no_inline_not_in_flash_func(commit_flash)(const uint8_t* page) {
+    const uint32_t ints = save_and_disable_interrupts();
+    flash_range_erase(PICO_FLASH_SIZE_BYTES, FLASH_SECTOR_SIZE);
+    flash_range_program(PICO_FLASH_SIZE_BYTES, page, FLASH_PAGE_SIZE);
+    restore_interrupts(ints);
+}
 #endif
 
 } // namespace
@@ -68,6 +76,30 @@ uint8_t config_store_read_channel() {
         return DEFAULT_MIDI_CHANNEL;
     }
     return rec.channel;
+}
+
+void config_store_write_channel(uint8_t channel) {
+    if (channel < DEFAULT_MIDI_CHANNEL || channel > MAX_MIDI_CHANNEL) {
+        return;
+    }
+    if (channel == config_store_read_channel()) {
+        return;
+    }
+    ConfigRecord rec{};
+    rec.magic    = CONFIG_MAGIC;
+    rec.version  = CONFIG_VERSION;
+    rec.channel  = channel;
+    rec.reserved = 0;
+    rec.crc32    = crc32(&rec, offsetof(ConfigRecord, crc32));
+#ifdef HOST_TEST
+    g_sector = rec;
+    g_write_count += 1U;
+#else
+    uint8_t page[FLASH_PAGE_SIZE];
+    std::memset(page, 0xFF, sizeof(page));
+    std::memcpy(page, &rec, sizeof(rec));
+    commit_flash(page);
+#endif
 }
 
 #ifdef HOST_TEST

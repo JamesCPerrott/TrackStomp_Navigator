@@ -486,6 +486,33 @@ the sequencer channel.
 
 ---
 
+## Q018 — [ASSUMED] — T19
+
+**Task:** T19 config-store-write
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+`config_store_write_channel` skips erase/program when the argument equals
+`config_store_read_channel()` (validated/fallback value) or is outside
+1–10. The RAM helper uses `__no_inline_not_in_flash_func` so it cannot
+be inlined back into flash, and it wraps `flash_range_erase` /
+`flash_range_program` with `save_and_disable_interrupts`. T20 will call
+this on setup exit; T19 does not touch the sequencer or main loop. Host
+tests count programs via `config_store_host_write_count`.
+
+**Reasoning:**
+PRD §7.3 compares pending to the stored channel; after T18, that is the
+read API (erased flash reports 1). A noinline RAM function is the SDK
+way to keep XIP-off code off the flash image. Wiring the call site is
+T20 so sequencer still never calls flash.
+
+**Cost to reverse:** low — call from sequencer, or use `flash_safe_execute`.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._

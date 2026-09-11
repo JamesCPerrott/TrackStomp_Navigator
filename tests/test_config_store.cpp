@@ -52,5 +52,25 @@ int main() {
     REQUIRE(config_store_read_channel() == 8U);
     REQUIRE(config_store_host_write_count() == 0U);
 
+    config_store_host_erase();
+    config_store_write_channel(DEFAULT_MIDI_CHANNEL);
+    REQUIRE(config_store_host_write_count() == 0U);
+
+    config_store_write_channel(8);
+    REQUIRE(config_store_read_channel() == 8U);
+    REQUIRE(config_store_host_write_count() == 1U);
+
+    config_store_write_channel(8);
+    REQUIRE(config_store_host_write_count() == 1U);
+
+    config_store_write_channel(0);
+    config_store_write_channel(11);
+    REQUIRE(config_store_read_channel() == 8U);
+    REQUIRE(config_store_host_write_count() == 1U);
+
+    config_store_write_channel(1);
+    REQUIRE(config_store_read_channel() == 1U);
+    REQUIRE(config_store_host_write_count() == 2U);
+
     return 0;
 }
