@@ -100,3 +100,40 @@ tree dump; added there.
 
 **Defects noted in earlier tasks (not fixed):**
 None.
+
+## T02 — config-header — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T02-config-header
+**Commit:** (this commit)
+**Criteria covered:** —
+**Tests:** 1 added (PRD §6.2 parse vs CUE_TABLE), 1 total, green
+
+**Done:**
+Filled `src/config.h` with every PRD §13 constant at the specified values and a
+33-entry `CUE_TABLE` in §6.2 row order (`Cue` + `CueTrigger`). Compile-time
+asserts require length 33 and distinct notes covering 0–32. Host CMake path
+`BUILD_HOST_TESTS=ON` skips the Pico SDK and builds `tests/test_cue_table.cpp`,
+which parses the markdown table and compares note, trigger type, and buttons
+to `CUE_TABLE[i]`. Target build compiles `config.h` via `main.cpp`. Swap of two
+table rows went red, then green after revert. clang-format and clang-tidy clean
+on changed files (`-p build-host`). Host configure uses `-G Ninja`.
+
+**Tried and abandoned:**
+- Default Unix Makefiles for `build-host` — `ninja -C build-host` failed; reconfigured
+  with `-G Ninja`.
+- `fprintf` in the test — `cert-err33-c` treats an unchecked return as an error;
+  switched to `std::cerr`.
+- `bool seen[33]` completeness loop — `std::all_of` is not constexpr in C++17;
+  replaced with a `uint64_t` bit mask.
+- `clang-tidy -p build` (ARM compile_commands) — host clang cannot find the
+  cross-compile `cstdint`; used `-p build-host` per AGENTS.md.
+
+**Contradicts PRD:**
+None. `tests/` is not in the §12 tree dump; required by T02 for the transcription
+check and kept self-contained for T03 to restructure.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
