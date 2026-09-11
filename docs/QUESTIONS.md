@@ -241,6 +241,32 @@ patterns into `resolve_stack`.
 
 ---
 
+## Q008 — [ASSUMED] — T11
+
+**Task:** T11 led-performance-patterns
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+The lockout flash (priority 4) stays armed after `UiEventKind::Locked` while
+`buttons_accepted_pressed` is true for the locked button id. There is no
+Unlock event. Hold cues emit `Locked` and not `Sent`, so lockout outranks
+cue flash without a separate pulse (criterion 49). A `Sent` while the lamp
+is lit or a cue flash is already on inserts `CUE_FLASH_GAP_MS` off first.
+
+**Reasoning:**
+The sequencer returns to IDLE immediately after a hold (PRD §8.2) and never
+sees the eventual release (lockout lives in input, §12.1). Polling accepted
+state is the same pattern as Q006 and is not GPIO. A new Unlock UiEvent
+would be a new architectural pattern.
+
+**Cost to reverse:** low — emit Unlock from the sequencer, or have input
+report lockout duration some other way.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._

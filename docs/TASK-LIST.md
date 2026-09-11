@@ -221,6 +221,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **Done when:** A tick-driven state machine resolves the 7-level priority stack and outputs a boolean lamp state per tick. **No `sleep_ms` anywhere** — a blocking pattern would stall `tud_task()` and drop USB. Host tests advance the fake clock and assert the lamp waveform. A test asserts the engine never consumes more than a bounded time per tick.
 
 ### T11 — led-performance-patterns
+- **Status:** complete
 - **Branch:** `task/T11-led-performance-patterns`
 - **Commit:** `T11: implement pending, lockout, and cue confirmation LED patterns`
 - **Depends on:** T10
