@@ -188,6 +188,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **PRD:** §8.1–§8.4
 - **Verify:** host
 - **Covers:** 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 17
+- **CONSTRAINT FROM T03 — read before implementing.** `buttons_poll_event` is the drain the harness uses to capture `ButtonEvent`. If the sequencer consumes that queue without leaving a copy for the harness, every `ButtonEvent` assertion in T04–T07 goes red and the failures will look like regressions in already-finished work rather than a problem here. Either leave a copy for the test drain or route the sequencer through a separate path. Confirm the full `ctest` suite is green, not just the new tests.
 - **Done when:** Taps of 1–5 enter `PENDING`. A pending prefix resolves against any of 6–9 or itself. A different prefix reassigns without emitting. A tap of 10 fires Repeat and clears any pending. Orphan suffixes are ignored. `SEQUENCE_TIMEOUT_MS` expiry is silent. The self-pair check must precede prefix reassignment — test 6 (`3, 3` → note 24) catches the wrong ordering.
 
 ### T09 — setup-mode-state

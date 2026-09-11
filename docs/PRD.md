@@ -576,6 +576,9 @@ The boot-time blink means the operator always knows the current channel without 
 
 ```
 pico_sdk_import.cmake   SDK bootstrap shim, copied from $PICO_SDK_PATH/external/
+CMakeLists.txt          Target build plus the BUILD_HOST_TESTS host path
+CMakePresets.json       Generators and cache vars for the pico2 and host presets
+tests/                  Host test sources. Added in T02, restructured by T03.
 src/
   main.cpp            Init, main loop, tick dispatch
   config.h            ALL tunables and the command table. Single source of truth.
