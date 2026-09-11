@@ -2,6 +2,16 @@
     "version": 4,
     "configurePresets": [
         {
+            "name": "pico2",
+            "displayName": "Firmware (pico2)",
+            "description": "Cross-compile the firmware for RP2350",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "PICO_BOARD": "pico2"
+            }
+        },
+        {
             "name": "host",
             "displayName": "Host tests",
             "description": "Build input/, sequencer/, and ui/ for the host with no Pico SDK",
