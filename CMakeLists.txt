@@ -18,6 +18,7 @@ if (BUILD_HOST_TESTS)
         src/ui/ui.cpp
         src/midi/midi_out.cpp
         src/storage/config_store.cpp
+        src/main.cpp
     )
     target_include_directories(firmware_host PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -101,6 +102,10 @@ if (BUILD_HOST_TESTS)
     add_executable(test_config_store tests/test_config_store.cpp)
     target_link_libraries(test_config_store PRIVATE harness)
     add_test(NAME config_store_read COMMAND test_config_store)
+
+    add_executable(test_loop tests/test_loop.cpp)
+    target_link_libraries(test_loop PRIVATE harness)
+    add_test(NAME main_loop_dispatch COMMAND test_loop)
 
     add_executable(test_capture tests/test_capture.cpp)
     target_link_libraries(test_capture PRIVATE harness)
