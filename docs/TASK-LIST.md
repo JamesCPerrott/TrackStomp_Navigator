@@ -172,6 +172,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **Done when:** Overlap of buttons 6 and 9 flags both `chord_overlap` for the remainder of their presses; neither emits a tap. The timer starts at the **second** press and requires `CHORD_HOLD_MS` of **continuous** overlap. Release of either **clears** the timer — not pauses it. Re-forming the pair starts a fresh full window. An aborted chord emits nothing at all. Buttons 6 and 9 are exempt from the T05 suppression at `HOLD_MS` while `chord_armed`. Test 24 (hold 6 for 7 s while tapping 9 partway) and test 26 (re-form) are the two that must pass; write them first.
 
 ### T07 — hold-lockout
+- **Status:** complete
 - **Branch:** `task/T07-hold-lockout`
 - **Commit:** `T07: implement hold lockout and chord lockout with phantom-tap suppression`
 - **Depends on:** T06

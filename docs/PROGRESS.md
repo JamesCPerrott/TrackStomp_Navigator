@@ -254,3 +254,28 @@ None. Setup entry and chord lockout remain T09/T07.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T07 — hold-lockout — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T07-hold-lockout
+**Commit:** (this commit)
+**Criteria covered:** 19, 20, 21 (ButtonEvent layer)
+**Tests:** 1 added (hold_lockout), 8 total, all green
+
+**Done:**
+A hold enters `LOCKED` keyed to that button; other presses/releases emit
+nothing. Lockout ends on release of the locked button, and every button still
+down is tap-suppressed (20). Chord lockout ends only when both 6 and 9 are
+released (Q004: no SETUP yet). After unlock, taps work again (21).
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None. MIDI notes for 19–21 wait for T08.
+
+**Questions raised:** Q004 [ASSUMED] — chord lockout unlocks without SETUP.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
