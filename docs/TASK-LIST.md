@@ -343,6 +343,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **Done when:** The loop matches §12.2 exactly, with `tud_task()` first on every iteration. Layer rules hold: the sequencer calls no GPIO, MIDI, or flash function directly; lockout and chord logic live in `input`; `config_store` is called only at boot and on setup exit. Core 1 is unused.
 
 ### T21 — release-build-hardening
+- **Status:** complete
 - **Branch:** `task/T21-release-build-hardening`
 - **Commit:** `T21: enforce Tier 1 release build with no serial console`
 - **Depends on:** T20

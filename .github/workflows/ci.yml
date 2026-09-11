@@ -100,3 +100,8 @@ jobs:
 
       - name: Confirm UF2 was produced
         run: test -n "$(find build -name '*.uf2' -print -quit)"
+
+      - name: No absolute source paths
+        run: |
+          strings -d build/trackstomp_navigator.elf | grep -E '/(home|Users)/' && exit 1 || true
+          strings -a build/trackstomp_navigator.uf2 | grep -E '/(home|Users)/' && exit 1 || true

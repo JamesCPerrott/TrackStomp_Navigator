@@ -542,6 +542,31 @@ queue. TinyUSB 0.17 in SDK 2.3.1 rejects `tusb_init(void)` unless
 
 ---
 
+## Q020 — [ASSUMED] — T21
+
+**Task:** T21 release-build-hardening
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+Release path checks use `strings -d` on the ELF (loadable sections) and
+`strings -a` on the UF2. `-ffile-prefix-map` rewrites `__FILE__`/DWARF
+to `.` and `pico-sdk`. `DEBUG_UART` defines a compile flag and calls
+`stdio_init_all()` so UART stdio on GP0/GP1 actually starts. USB stdio
+stays off. Tier 2 is untouched.
+
+**Reasoning:**
+DWARF in the unstripped ELF still has compiler paths; the flashed image
+does not. Prefix-map plus a post-build grep matches T21's "grep of the
+built binary" bar without stripping debug info needed for local dumps.
+`pico_enable_stdio_uart(1)` is inert without `stdio_init_all`.
+
+**Cost to reverse:** low — also map `/usr/include`, or skip `stdio_init_all`.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._

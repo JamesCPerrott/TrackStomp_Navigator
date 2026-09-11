@@ -107,6 +107,13 @@ if (BUILD_HOST_TESTS)
     target_link_libraries(test_loop PRIVATE harness)
     add_test(NAME main_loop_dispatch COMMAND test_loop)
 
+    add_executable(test_release tests/test_release.cpp)
+    target_compile_definitions(test_release PRIVATE
+        "TUSB_CONFIG_PATH=\"${CMAKE_SOURCE_DIR}/src/midi/tusb_config.h\""
+        "CMAKE_LISTS_PATH=\"${CMAKE_SOURCE_DIR}/CMakeLists.txt\""
+    )
+    add_test(NAME release_build_hardening COMMAND test_release)
+
     add_executable(test_capture tests/test_capture.cpp)
     target_link_libraries(test_capture PRIVATE harness)
     add_test(NAME capture_buffers COMMAND test_capture)
@@ -163,11 +170,26 @@ else()
     pico_enable_stdio_usb(trackstomp_navigator 0)
     if (DEBUG_UART)
         pico_enable_stdio_uart(trackstomp_navigator 1)
+        target_compile_definitions(trackstomp_navigator PRIVATE DEBUG_UART)
     else()
         pico_enable_stdio_uart(trackstomp_navigator 0)
     endif()
 
+    # PRD §5.1: do not embed absolute source paths in __FILE__ or DWARF.
+    target_compile_options(trackstomp_navigator PRIVATE
+        "-ffile-prefix-map=${CMAKE_SOURCE_DIR}=."
+        "-ffile-prefix-map=${PICO_SDK_PATH}=pico-sdk"
+    )
+
     pico_add_extra_outputs(trackstomp_navigator)
+
+    add_custom_command(TARGET trackstomp_navigator POST_BUILD
+        COMMAND ${CMAKE_COMMAND}
+            -DELF=$<TARGET_FILE:trackstomp_navigator>
+            -DUF2=${CMAKE_CURRENT_BINARY_DIR}/trackstomp_navigator.uf2
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_no_abs_paths.cmake
+        VERBATIM
+    )
 
     # PRD §10.1: last 4 KB flash sector is reserved for ConfigRecord and must
     # sit outside the linker image so a firmware update cannot clobber it.
