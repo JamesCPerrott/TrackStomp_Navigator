@@ -66,7 +66,7 @@ Three tasks are not suitable for unattended work. **The agent still writes the c
 | Task | Why not the loop |
 |---|---|
 | **T01** | Toolchain setup is environment-specific — SDK path, submodule pin, board file. An agent can confirm a `.uf2` was produced but not that it is a valid one. Failures here are silent and poison everything downstream. |
-| **T02** | Mechanical, but it is the single source of truth for all 32 cues. A transcription error survives the compile-time assertion and, worse, the loop would then write tests *from* `config.h` rather than the PRD — the error becomes self-consistent and invisible. Mitigated by the PRD-parsing test required in T02's completion criteria. |
+| **T02** | Mechanical, but it is the single source of truth for all 33 cues. A transcription error survives the compile-time assertion and, worse, the loop would then write tests *from* `config.h` rather than the PRD — the error becomes self-consistent and invisible. Mitigated by the PRD-parsing test required in T02's completion criteria. |
 | **T03** | The harness is the loop's only feedback signal, and its API shape constrains all eighteen downstream tasks. A subtly broken harness means hours of firmware written blind and reported green — hence the negative control in its completion criteria. |
 
 The loop must refuse to start until all three are complete and `ctest` is green.
@@ -99,9 +99,9 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **PRD:** §6.2, §13
 - **Verify:** build
 - **Covers:** —
-- **Done when:** `config.h` contains every constant from PRD §13 with the exact specified values, plus the full 32-entry cue table from §6.2 as a single `constexpr` structure indexed by trigger. No note number or button pairing appears anywhere else in the codebase. A compile-time assertion confirms 32 distinct notes covering 0–31.
+- **Done when:** `config.h` contains every constant from PRD §13 with the exact specified values, plus the full 33-entry cue table from §6.2 as a single `constexpr` structure indexed by trigger. No note number or button pairing appears anywhere else in the codebase. A compile-time assertion confirms 33 distinct notes covering 0–32.
 
-  **Plus a machine check for transcription.** The distinctness assertion does not catch a mis-paired trigger — swapping two rows still yields 32 distinct notes. Add a host test that parses the markdown table in PRD §6.2 and asserts every row matches the compiled table exactly: note number, prefix button, suffix button, trigger type. This catches transcription errors now and keeps catching them if either file is edited later. Prefer this over reviewing 32 rows by eye.
+  **Plus a machine check for transcription.** The distinctness assertion does not catch a mis-paired trigger — swapping two rows still yields 33 distinct notes. Add a host test that parses the markdown table in PRD §6.2 and asserts every row matches the compiled table exactly: note number, prefix button, suffix button, trigger type. This catches transcription errors now and keeps catching them if either file is edited later. Prefer this over reviewing 33 rows by eye.
 
 ---
 
@@ -144,8 +144,10 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **Depends on:** T04
 - **PRD:** §6.3
 - **Verify:** host
-- **Covers:** 13, 14, 15, 18
-- **Done when:** Release before `HOLD_MS` emits `TAP`. Reaching `HOLD_MS` on a hold-capable button (1–5, 10) emits `HOLD` **at the threshold, not on release**, and suppresses the subsequent release. Buttons 7 and 8 held past `HOLD_MS` emit nothing and suppress their tap. Buttons 6 and 9 are handled in T06.
+- **Covers:** 13, 14, 15, 15b, 15c, 15d, 18
+- **Done when:** Release before `HOLD_MS` (2000) emits `TAP`. Reaching `HOLD_MS` on a hold-capable button (**1–5, 8, 10**) emits `HOLD` **at the threshold, not on release**, and suppresses the subsequent release. Buttons 6, 7, and 9 held past `HOLD_MS` emit nothing and suppress their tap; the chord exception for 6 and 9 is handled in T06.
+
+  **Button 8 is the only suffix button with a hold** (Mute MIDI, note 32). Check it is not accidentally grouped with 6, 7, and 9 in the suppression branch — test 15d asserts the other three still do nothing.
 
 ### T06 — chord-detection
 - **Branch:** `task/T06-chord-detection`
@@ -153,7 +155,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **Depends on:** T05
 - **PRD:** §6.4 (exception clause), §6.5
 - **Verify:** host
-- **Covers:** 22, 23, 24, 25, 26, 27, 29
+- **Covers:** 22, 23, 24, 25, 26, 27, 29, 29b
 - **Done when:** Overlap of buttons 6 and 9 flags both `chord_overlap` for the remainder of their presses; neither emits a tap. The timer starts at the **second** press and requires `CHORD_HOLD_MS` of **continuous** overlap. Release of either **clears** the timer — not pauses it. Re-forming the pair starts a fresh full window. An aborted chord emits nothing at all. Buttons 6 and 9 are exempt from the T05 suppression at `HOLD_MS` while `chord_armed`. Test 24 (hold 6 for 7 s while tapping 9 partway) and test 26 (re-form) are the two that must pass; write them first.
 
 ### T07 — hold-lockout

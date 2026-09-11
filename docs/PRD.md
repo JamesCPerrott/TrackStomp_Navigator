@@ -94,9 +94,9 @@ Tier 1 stops casual inspection, which is the stated threat model. It does not st
 | 5 | Outro | Prefix | Section + |
 | 6 | One | Suffix only | none |
 | 7 | Two | Suffix only | none |
-| 8 | Three | Suffix only | none |
+| 8 | Three | Suffix only | Mute MIDI |
 | 9 | Tag | Suffix only | none |
-| 10 | Repeat | Standalone → Repeat | Loop |
+| 10 | Repeat | Repeat | Loop |
 
 Plus one chord: **6 + 9 held together for 5 continuous seconds** → enter MIDI Channel Setup Mode (§7).
 
@@ -108,7 +108,7 @@ The single-button grammar is **total**: every button in 1–5 accepts every butt
 
 ### 6.2 Command table
 
-All performance output is Note On, velocity 1, notes 0–31, on the configured channel.
+All performance output is Note On, velocity 1, notes 0–32, on the configured channel.
 
 | Note | Function | Trigger |
 |---|---|---|
@@ -144,6 +144,7 @@ All performance output is Note On, velocity 1, notes 0–31, on the configured c
 | 29 | Auto Reset | 3 hold |
 | 30 | Beginning | 4 hold |
 | 31 | Section + | 5 hold |
+| 32 | Mute MIDI | 8 hold |
 
 This table must be a single `constexpr` array in `config.h`. Nothing else in the codebase may hardcode a note number or a button pairing.
 
@@ -154,7 +155,9 @@ A press cannot be classified until either a hold threshold elapses or the button
 - On press: record timestamp, mark button active.
 - If held for `HOLD_MS` (2000): fire the hold command immediately at the threshold, not on release. This gives the player a defined moment the action occurs.
 - If released before `HOLD_MS`: emit a TAP event, subject to §6.5.
-- **Buttons 6, 7, 8, 9 have no hold command.** Held past `HOLD_MS`, they are ignored entirely and their tap is suppressed on release. This prevents a resting foot from firing a cue.
+- **Hold-capable buttons are 1–5, 8, and 10.**
+- **Buttons 6, 7, and 9 have no hold command.** Held past `HOLD_MS`, they are ignored entirely and their tap is suppressed on release. This prevents a resting foot from firing a cue.
+- **Button 8 is the exception among the suffix buttons**, holding to Mute MIDI (note 32). It was chosen over 6, 7, or 9 because it is not a chord member and therefore cannot interfere with Setup Mode entry. Note the tradeoff: a foot resting on button 8 for two seconds mutes Playback's outgoing automation, where the same lean on 6, 7, or 9 does nothing.
 
 Buttons 1–5 and 10 are unaffected by any chord logic. Their holds behave exactly as specified with no deferral or arbitration.
 
@@ -168,7 +171,7 @@ Buttons 1–5 and 10 are unaffected by any chord logic. Their holds behave exact
 - **On exit, any button still physically pressed is marked tap-suppressed**, so its eventual release does not emit a phantom tap. Without this, a player who mashes a second switch during the lockout gets a spurious cue the moment they lift their foot.
 - State returns to `IDLE` on exit, never to a pending sequence.
 
-**Single exception — the 6+9 chord.** The suppression rule in §6.3 that kills a held button 6 or 9 at `HOLD_MS` is waived while both are simultaneously down. Those two buttons remain live past 2 seconds so the chord timer can run to 5. This is the only case in which a button in 6–9 does anything on a hold, and the only lockout any of them can produce.
+**Single exception — the 6+9 chord.** The suppression rule in §6.3 that kills a held button 6 or 9 at `HOLD_MS` is waived while both are simultaneously down. Those two buttons remain live past 2 seconds so the chord timer can run to 5. Buttons 6 and 9 have no hold command of their own, so the chord is the only thing their hold can trigger.
 
 When the chord fires, the device enters `LOCKED(CHORD)`, which ends only when **both** 6 and 9 are released.
 
@@ -251,7 +254,7 @@ SETUP   { pending_channel, inactivity_deadline_ms }
 - **Prefix buttons:** 1, 2, 3, 4, 5. Tap enters PENDING. No standalone command.
 - **Suffix buttons:** 6, 7, 8, 9. Meaningful only while PENDING, or as the chord pair {6, 9}.
 - **Standalone:** 10. Tap fires Repeat immediately.
-- **Hold-capable:** 1, 2, 3, 4, 5, 10.
+- **Hold-capable:** 1, 2, 3, 4, 5, 8, 10.
 - **Chord pair:** {6, 9}.
 - A PENDING prefix P accepts as valid suffix: 6, 7, 8, 9, and P itself.
 
@@ -270,16 +273,17 @@ on PRESS(B):
 
 on HOLD_THRESHOLD(B):                         # press_time + HOLD_MS, still pressed
     if state == LOCKED or state == SETUP: return
-    if B in {6,7,8,9}:
+    if B in {6,7,9}:                          # no hold command
         if B in CHORD_PAIR and chord_armed:
             return                            # §6.4 exception: stay live for the chord
-        B.suppress_tap = true                 # no hold command, no lockout
+        B.suppress_tap = true                 # no lockout
         return
-    send(hold_note[B]);  B.hold_fired = true
+    send(hold_note[B]);  B.hold_fired = true  # buttons 1-5, 8, 10
+    chord_armed = false                       # a lockout cancels a part-formed chord
     state = LOCKED(B)                         # discards any PENDING
 
 on CHORD_THRESHOLD:                           # chord_start + CHORD_HOLD_MS, BOTH still down
-    if state == SETUP: return                 # no hold semantics inside setup
+    if state == SETUP or state == LOCKED: return
     enter_setup_mode()
     state = LOCKED(CHORD)                     # until BOTH 6 and 9 released
 
@@ -345,6 +349,10 @@ on TIMEOUT:
 - Press 6, press 9 at +1 s, release 9 at +1.5 s, press 9 again at +2 s, hold both to +7 s → Setup Mode at +7 s. A fresh 5 seconds ran from the re-form.
 - Press 6+9, hold 3 s, release both → **nothing**. Aborted chord, no Verse cue, no orphan.
 - Pending on 2, then press 6+9 and hold 5 s → Setup Mode. No Verse 1 sent, pending discarded.
+- Tap 10 → Repeat (note 20) immediately on release.
+- Hold 10 to 2 s → Loop (note 21) at the 2 s mark, then lockout.
+- Hold 8 to 2 s → Mute MIDI (note 32) at the 2 s mark, then lockout. Holding 6, 7, or 9 still does nothing.
+- Tap 2, then tap 10 → Repeat only, pending Verse discarded.
 - In setup: tap 4, tap 9, tap 2 → channel 2 pending. Tap 6+9 → channel 2 committed.
 - In setup: tap nothing, tap 6+9 → exits cleanly, no flash write.
 
@@ -651,7 +659,7 @@ constexpr uint32_t CHANNEL_BLINK_OFF_MS = 150;
 **Enumeration**
 1. Device appears as a class-compliant MIDI input on macOS, Windows, and iOS with no drivers.
 2. No mass storage volume mounts. No serial port appears. Release build only.
-3. MultiTracks Playback receives and triggers on all 32 cues.
+3. MultiTracks Playback receives and triggers on all 33 cues.
 
 **Sequences**
 4. Tap 1 then 6 → note 0 only.
@@ -667,7 +675,10 @@ constexpr uint32_t CHANNEL_BLINK_OFF_MS = 150;
 **Holds (unaffected by chord logic)**
 13. Hold 1 for 2 s → note 27 at the 2 s mark, while still held. Release sends nothing.
 14. Hold 5 for 2 s → note 31. Confirms buttons 1 and 5 have no residual chord behaviour.
-15. Hold 10 for 2 s → note 21 at the 2 s mark.
+15. Hold 10 for 2 s → note 21 at the 2 s mark, then lockout. No note 20.
+15b. Hold 8 for 2 s → note 32 at the 2 s mark, then lockout. Nothing else.
+15c. Tap 2, then hold 8 for 2 s → note 32 only. No Verse 3 note, pending discarded.
+15d. Hold 6 for 3 s, hold 7 for 3 s, hold 9 for 3 s (each alone) → nothing sent in any case, no lockout.
 16. Tap 2 then hold 5 for 2 s → note 31 only. No Verse note.
 17. Tap 2, then press 2 and hold past 2 s → note 28 only. No note 23.
 18. Hold 7 for 3 s and release → nothing sent, no lockout entered.
@@ -686,11 +697,12 @@ constexpr uint32_t CHANNEL_BLINK_OFF_MS = 150;
 27. Press 6+9, hold 4 s, release both → nothing sent. No Verse cue, no orphan suffix, no pending sequence.
 28. Pending on 2, then press 6+9 and hold 5 s → setup entered, no Verse 1 sent.
 29. Contact bounce on button 9 during a 5 s chord hold does not clear the timer (verify with an instrumented debug build).
+29b. Press 6+9 and hold; at +1 s also press and hold 8 past its 2 s threshold → note 32 fires and lockout engages; the chord is cancelled and setup is NOT entered even if 6 and 9 stay down past 5 s.
 
 **Setup mode**
 30. On entry, release both 6 and 9 → slow blink begins. No MIDI sent throughout.
 31. While in setup, tap 2 then 7 → **no MIDI sent**. LED blinks 2, then 7.
-32. While in setup, hold 3 for 3 s → nothing happens. No note 29.
+32. While in setup, hold 3 for 3 s → nothing happens. No note 29. Same for a 3 s hold of 8 — no note 32.
 33. While in setup, tap 8 → LED blinks 8 times. Tap 6+9 and release → exit pattern. Subsequent cues transmit on channel 8.
 34. **Enter setup, select nothing, tap 6+9 → exits normally.** No flash write, no error, returns to IDLE.
 35. Enter setup, tap 6 alone → channel 6 selected. Enter setup again, tap 9 alone → channel 9 selected. Confirms the chord buttons still work as individual channel selectors.
@@ -741,9 +753,9 @@ Each was decided to unblock implementation. Flag any that are wrong.
 | 5 | Is a cancel-without-saving gesture needed? | Not implemented. It would be a third gesture with no display to prompt for it. Reconsider in v2. |
 | 6 | Channels 11–16 are unreachable. Acceptable? | Yes. Called out in §7.4. |
 | 7 | While a sequence is pending, does tapping 10 fire Repeat and clear the pending prefix? | Yes. |
-| 8 | Should buttons 7 and 8 do anything when held past 2 s? | No — ignored, tap suppressed, no lockout. Only 6 and 9 have the chord exception. |
+| 8 | Should buttons 6, 7, and 9 do anything when held past 2 s? | No — ignored, tap suppressed, no lockout. Button 8 is the sole suffix button with a hold (Mute MIDI); 6 and 9 have the chord exception instead. |
 | 9 | Is the bank split 1–5 / 6–10 as assumed? | Yes. Affects documentation and v2 display layout only. |
-| 10 | Are 2 s (hold) and 5 s (chord) right under a shoe? | Per spec. Both tunable. |
+| 10 | Are 2 s (hold) and 5 s (chord) right under a shoe? | Per spec. Both tunable. Note that at 2 s, a foot resting on button 8 mutes MIDI relatively easily — the shortest hold duration is a direct tradeoff against that. |
 | 11 | Security tier target? | Tier 1 for v1. Tier 2 fuses are irreversible; wait for a signed update path. |
 
 ---
