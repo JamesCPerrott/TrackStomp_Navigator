@@ -255,6 +255,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 ## Phase 5 — Target hardware
 
 ### T14 — gpio-input
+- **Status:** complete
 - **Branch:** `task/T14-gpio-input`
 - **Commit:** `T14: wire button scanning to GP6-GP15 with internal pull-ups`
 - **Depends on:** T13
