@@ -409,3 +409,31 @@ input.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T13 — led-channel-blink — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T13-led-channel-blink
+**Commit:** (this commit)
+**Criteria covered:** 50, 51, 52, 53, 55, 56
+**Tests:** 1 added (led_channel_blink), 14 total, all green
+
+**Done:**
+Channel blink plays gap / N pulses / gap at priority 1, then falls
+through. Started on boot (`ui_indicate_channel` in `main`), setup
+channel taps, and both setup-exit paths. A new blink cancels the old.
+`Sent`/`Locked` abort it so a cue is not delayed. Setup stays solid on
+entry, including while 6 and 9 are held (Q010).
+
+**Tried and abandoned:**
+Starting the boot blink on `now < g_last_now` reset — that hid PENDING
+under the lead gap after every `harness_reset`.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q010 [ASSUMED] — boot via `ui_indicate_channel`, not
+on harness reset.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+

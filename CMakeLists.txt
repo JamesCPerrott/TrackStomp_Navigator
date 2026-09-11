@@ -88,6 +88,10 @@ if (BUILD_HOST_TESTS)
     target_link_libraries(test_led_chord PRIVATE harness)
     add_test(NAME led_chord_progress COMMAND test_led_chord)
 
+    add_executable(test_led_channel tests/test_led_channel.cpp)
+    target_link_libraries(test_led_channel PRIVATE harness)
+    add_test(NAME led_channel_blink COMMAND test_led_channel)
+
     add_executable(test_capture tests/test_capture.cpp)
     target_link_libraries(test_capture PRIVATE harness)
     add_test(NAME capture_buffers COMMAND test_capture)

@@ -241,6 +241,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **Done when:** While `chord_armed`, the lamp is forced **hard off** for `CHORD_LED_DELAY_MS`, overriding a slow-flashing PENDING beneath it, then flashes at a 250 ms period until the chord completes. Completion goes straight to solid. Abort releases the override immediately. Re-form restarts the blackout along with the timer.
 
 ### T13 — led-channel-blink
+- **Status:** complete
 - **Branch:** `task/T13-led-channel-blink`
 - **Commit:** `T13: implement channel blink primitive and its four invocation sites`
 - **Depends on:** T12
