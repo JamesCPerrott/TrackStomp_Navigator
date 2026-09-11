@@ -570,3 +570,31 @@ linker override as offset; Q017 [ASSUMED] boot apply in `main`.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T19 — config-store-write — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T19-config-store-write
+**Commit:** (this commit)
+**Criteria covered:** 36, 37 (host: write only when channel changes, no-op
+skip; on-device setup-exit persist is T20/T22)
+**Tests:** write cases added to config_store_read, 16 total, all green.
+pico2 `.uf2` produced.
+
+**Done:**
+`config_store_write_channel` programs a CRC'd `ConfigRecord` into the
+reserved sector via a noinline RAM helper with IRQs off. Unchanged or
+out-of-range channels skip erase. No call site in the main loop yet
+(Q018). Host asserts factory write-1 is a no-op and rewrite of 8 is too.
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q018 [ASSUMED] — write API; T20 owns the setup-exit
+call; noinline RAM commit.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
