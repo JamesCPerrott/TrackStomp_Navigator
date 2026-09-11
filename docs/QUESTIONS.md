@@ -167,6 +167,29 @@ needed.
 
 ---
 
+## Q005 — [ASSUMED] — T08
+
+**Task:** T08 sequence-state-machine
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+`queue_push` copies each `ButtonEvent` into a second ring buffer drained by
+`buttons_poll_sequencer_event`. `buttons_poll_event` remains the harness drain.
+ChordHold clears PENDING and sends no cue; SETUP is T09. Holds emit `Command`
+plus `UiEventKind::Locked`.
+
+**Reasoning:**
+T03 forbids the sequencer from emptying the harness queue. A copied drain is
+the option named in T08. Notes always come from `CUE_TABLE`.
+
+**Cost to reverse:** low — change which poll the sequencer calls, or the
+ChordHold/hold UiEvent kinds.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._

@@ -24,8 +24,11 @@ struct ButtonSlot {
 
 ButtonSlot g_slots[BUTTON_COUNT]{};
 ButtonEvent g_queue[kEventQueueSize]{};
+ButtonEvent g_seq_queue[kEventQueueSize]{};
 std::size_t g_queue_head  = 0;
 std::size_t g_queue_count = 0;
+std::size_t g_seq_head    = 0;
+std::size_t g_seq_count   = 0;
 uint32_t g_last_now       = 0;
 uint32_t g_chord_start    = 0;
 LockKind g_lock           = LockKind::None;
@@ -79,15 +82,21 @@ bool is_locked() {
 void queue_clear() {
     g_queue_head  = 0;
     g_queue_count = 0;
+    g_seq_head    = 0;
+    g_seq_count   = 0;
 }
 
 void queue_push(uint8_t id, ButtonEventKind kind) {
-    if (g_queue_count >= kEventQueueSize) {
-        return;
+    if (g_queue_count < kEventQueueSize) {
+        const std::size_t index = (g_queue_head + g_queue_count) % kEventQueueSize;
+        g_queue[index]          = ButtonEvent{id, kind};
+        g_queue_count += 1U;
     }
-    const std::size_t index = (g_queue_head + g_queue_count) % kEventQueueSize;
-    g_queue[index]          = ButtonEvent{id, kind};
-    g_queue_count += 1U;
+    if (g_seq_count < kEventQueueSize) {
+        const std::size_t index = (g_seq_head + g_seq_count) % kEventQueueSize;
+        g_seq_queue[index]      = ButtonEvent{id, kind};
+        g_seq_count += 1U;
+    }
 }
 
 void suppress_physically_pressed(uint32_t levels) {
@@ -256,6 +265,16 @@ bool buttons_poll_event(ButtonEvent* out) {
     *out         = g_queue[g_queue_head];
     g_queue_head = (g_queue_head + 1U) % kEventQueueSize;
     g_queue_count -= 1U;
+    return true;
+}
+
+bool buttons_poll_sequencer_event(ButtonEvent* out) {
+    if (out == nullptr || g_seq_count == 0U) {
+        return false;
+    }
+    *out       = g_seq_queue[g_seq_head];
+    g_seq_head = (g_seq_head + 1U) % kEventQueueSize;
+    g_seq_count -= 1U;
     return true;
 }
 

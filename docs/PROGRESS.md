@@ -279,3 +279,28 @@ None. MIDI notes for 19–21 wait for T08.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T08 — sequence-state-machine — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T08-sequence-state-machine
+**Commit:** (this commit)
+**Criteria covered:** 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 17
+**Tests:** 1 added (sequence_state_machine), capture updated, 9 total, all green
+
+**Done:**
+IDLE/PENDING resolution using `CUE_TABLE`. Test 6 (`3, 3` → 24) written first.
+Prefix reassignment, Repeat (10), orphan suffixes, silent timeout, holds
+clearing pending (16, 17). Sequencer reads a copied event queue so T04–T07
+ButtonEvent assertions stay green (Q005).
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None. SETUP on ChordHold is T09.
+
+**Questions raised:** Q005 [ASSUMED] — dual ButtonEvent queues.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+

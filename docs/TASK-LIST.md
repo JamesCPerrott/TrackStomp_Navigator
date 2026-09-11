@@ -186,6 +186,7 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 ## Phase 3 — Sequencer
 
 ### T08 — sequence-state-machine
+- **Status:** complete
 - **Branch:** `task/T08-sequence-state-machine`
 - **Commit:** `T08: implement IDLE and PENDING sequence resolution`
 - **Depends on:** T07
