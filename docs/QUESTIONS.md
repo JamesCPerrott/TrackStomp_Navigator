@@ -145,6 +145,28 @@ Lockout on that event is T07.
 
 ---
 
+## Q004 — [ASSUMED] — T07
+
+**Task:** T07 hold-lockout
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+Lockout lives entirely in `input`. After `LOCKED(CHORD)` ends (both 6 and 9
+released) the module returns to unlocked; it does not enter SETUP. T09 owns
+setup entry from `ChordHold`.
+
+**Reasoning:**
+PRD §6.4 lockout is an input concern. SETUP is T09. Emitting `ChordHold` at
+threshold (Q003) is enough for the sequencer to enter setup later.
+
+**Cost to reverse:** low — T09 can keep lockout extended until setup-exit if
+needed.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._
