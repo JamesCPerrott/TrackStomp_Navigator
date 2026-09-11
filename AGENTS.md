@@ -64,7 +64,15 @@ clang-format --dry-run --Werror <files>
 clang-tidy -p build-host <files>
 ```
 
-There is no package manager and no dependency audit. The Pico SDK is a pinned submodule — never change the pin.
+`clang-format` and `clang-tidy` read `.clang-format` and `.clang-tidy` at the repo root. **Never edit, regenerate, or override these files.** If a check fires, fix the code — suppressing the check is a BLOCKER question, not a decision to make alone.
+
+`clang-tidy` requires `compile_commands.json`, which the host build generates with `CMAKE_EXPORT_COMPILE_COMMANDS=ON`.
+
+There is no package manager and no dependency audit.
+
+**The Pico SDK is NOT a submodule of this repo.** It lives at `~/pico/pico-sdk` (SDK 2.3.1) and is located via the `PICO_SDK_PATH` environment variable, per the T00 entry in `PROGRESS.md`. TinyUSB is a submodule *of the SDK*, pinned by the SDK tag — never modify anything under `$PICO_SDK_PATH`.
+
+Because the SDK is external, `CMakeLists.txt` asserts a minimum `PICO_SDK_VERSION_STRING` so a stale or missing SDK fails loudly at configure time instead of producing a subtly wrong binary. Do not weaken or remove that check.
 
 ## Layer rules (PRD §12.1)
 

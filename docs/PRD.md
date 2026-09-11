@@ -51,7 +51,9 @@ C++ also gives deterministic timing, which matters for a state machine running c
 
 **Cost to acknowledge:** no REPL, no live editing, a compile-and-flash cycle for every change. Iteration will be slower than CircuitPython. This is accepted as the price of the security requirement.
 
-**Toolchain:** Pico SDK (latest), `arm-none-eabi-gcc`, CMake, Ninja. Target board `pico2`. Libraries: `tinyusb_device` with the audio/MIDI class enabled, `hardware_flash`, `hardware_sync`.
+**Toolchain:** Pico SDK (latest), `arm-none-eabi-gcc`, CMake, Ninja. Target board `pico2`. Libraries: `pico_stdlib` (crt0, linker script, runtime — required for a valid UF2), `tinyusb_device` with the audio/MIDI class enabled, `hardware_flash`, `hardware_sync`. `pico_add_extra_outputs()` must be called on the target or no `.uf2` is generated.
+
+**SDK sourcing.** The SDK is external, located via the `PICO_SDK_PATH` environment variable — it is not vendored or submoduled into this repo. `pico_sdk_import.cmake` is copied from `$PICO_SDK_PATH/external/` into the repo root as the standard bootstrap shim. Since the repo cannot pin the SDK version this way, `CMakeLists.txt` must assert a minimum `PICO_SDK_VERSION_STRING` and fail at configure time if unmet.
 
 ---
 
@@ -573,6 +575,7 @@ The boot-time blink means the operator always knows the current channel without 
 ## 12. Architecture
 
 ```
+pico_sdk_import.cmake   SDK bootstrap shim, copied from $PICO_SDK_PATH/external/
 src/
   main.cpp            Init, main loop, tick dispatch
   config.h            ALL tunables and the command table. Single source of truth.
@@ -585,6 +588,8 @@ src/
   midi/
     midi_out.h/.cpp   TinyUSB MIDI send; owns the active channel
     usb_descriptors.c Explicit descriptors, MIDI-only
+    tusb_config.h     TinyUSB compile-time config. Stubbed disabled in T01 so
+                      the skeleton links; owned and enabled by T15.
   storage/
     config_store.h/.cpp  Flash read/write/validate per §10
   ui/

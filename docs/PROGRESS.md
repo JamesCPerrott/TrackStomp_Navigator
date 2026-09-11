@@ -67,3 +67,36 @@ Configure resolved to platform `rp2350-arm-s`, compiler
 
 **Contradicts PRD:** None.
 **Questions raised:** None.
+
+## T01 — repo-skeleton — 2026-09-11
+
+**Status:** complete
+**Branch:** task/T01-repo-skeleton
+**Commit:** (this commit)
+**Criteria covered:** —
+**Tests:** none (Verify: build)
+
+**Done:**
+Copied `pico_sdk_import.cmake` from SDK 2.3.1. Added the PRD §12 tree as empty stubs,
+`tusb_config.h` with `CFG_TUD_ENABLED 0`, and a spinning `main.cpp`. CMakeLists.txt
+sets `PICO_BOARD pico2` and `PICOTOOL_FETCH_FROM_GIT_PATH`, asserts SDK path and
+version ≥ 2.3.1, links `pico_stdlib` / `tinyusb_device` / `hardware_flash` /
+`hardware_sync`, wires `DEBUG_UART` (default OFF) to UART stdio with USB stdio off,
+and calls `pico_add_extra_outputs()`. Configure used `-G Ninja`. Produced
+`build/trackstomp_navigator.uf2` (12 KB). Platform `rp2350-arm-s`, compiler
+`pico_arm_cortex_m33_gcc`. Picotool came from `~/pico/picotool-build` (not rebuilt).
+
+**Tried and abandoned:**
+- `clang-format` and `clang-tidy` are not on PATH. `clang-tools-19` is installed but
+  does not ship those binaries; the `clang-format` / `clang-tidy` packages are not
+  installed. `apt-get install` could not run (sudo password required). Lint not
+  executed. Source stubs are include-guards / a bare spin loop only.
+
+**Contradicts PRD:**
+None. `CMakeLists.txt` is required at the repo root and is omitted from the §12
+tree dump; added there.
+
+**Questions raised:** None (DEBUG_UART wiring and `-G Ninja` decided in-session).
+
+**Defects noted in earlier tasks (not fixed):**
+None.

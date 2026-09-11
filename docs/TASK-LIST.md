@@ -83,11 +83,19 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **PRD:** §4, §12
 - **Verify:** build
 - **Covers:** —
-- **Done when:** Directory tree matches PRD §12 exactly, with empty stub headers/sources. `cmake -B build -DPICO_BOARD=pico2 && ninja -C build` produces a `.uf2` from a `main.cpp` that does nothing but spin. `tinyusb_device`, `hardware_flash`, and `hardware_sync` are linked. A `DEBUG_UART` CMake option exists and defaults to `OFF`.
+- **Done when:** Directory tree matches PRD §12 exactly, with empty stub headers/sources. `cmake -B build -DPICO_BOARD=pico2 && ninja -C build` produces a `.uf2` from a `main.cpp` that does nothing but spin. `pico_stdlib`, `tinyusb_device`, `hardware_flash`, and `hardware_sync` are linked. A `DEBUG_UART` CMake option exists and defaults to `OFF`.
 
   **Two settings must live inside `CMakeLists.txt`, not on the command line:**
   - `set(PICO_BOARD pico2)` — a forgotten flag would otherwise silently build an RP2040 binary that fails in confusing ways much later.
   - `set(PICOTOOL_FETCH_FROM_GIT_PATH $ENV{HOME}/pico/picotool-build)` — points at the already-built picotool 2.3.1. Without this the configure step fails or rebuilds picotool from scratch.
+
+  **SDK bootstrap.** Copy `pico_sdk_import.cmake` from `$PICO_SDK_PATH/external/` into the repo root and include it before `project()`. Call `pico_sdk_init()` after `project()`. Link **`pico_stdlib`** alongside the others — it supplies crt0, the linker script, and the runtime, without which the output is not a valid UF2. Call `pico_add_extra_outputs()` on the target or no `.uf2` is produced.
+
+  **Fail loudly on a bad SDK.** `CMakeLists.txt` must `FATAL_ERROR` if `PICO_SDK_PATH` is unset, and must assert `PICO_SDK_VERSION_STRING` is at least `2.3.1`. The SDK is external (see `AGENTS.md`), so the repo cannot pin it — this check is the substitute. A silently older SDK would produce a subtly wrong RP2350 binary.
+
+  **TinyUSB needs a config header to link.** Linking `tinyusb_device` compiles TinyUSB sources, which unconditionally `#include "tusb_config.h"`. Create `src/midi/tusb_config.h` containing an include guard, a comment marking it a T01 stub owned by T15, and an explicit `#define CFG_TUD_ENABLED 0`. Do not leave it empty — relying on TinyUSB's internal defaults is version-dependent and records no intent. Point `target_include_directories` at `src/midi` so TinyUSB resolves it. The device stack stays off until T15; nothing in T01 may call `tud_task()`.
+
+  **Configuration files** `.gitignore`, `.clang-format`, and `.clang-tidy` are present at the repo root and committed. Do not rewrite or regenerate them — they define the verification bar in `AGENTS.md` and must stay stable across every task. Confirm `build/` and `build-host/` are ignored before committing.
 
   **Documentation files:** verify `AGENTS.md` is at the repo root and that `PRD.md`, `TASK-LIST.md`, `QUESTIONS.md`, and `PROGRESS.md` are under `docs/`. If they are already committed, do nothing — do not move, rewrite, or reformat them. Add only what is missing. `TEST-HARNESS.md` arrives later, in T03.
 
@@ -250,6 +258,8 @@ The loop must refuse to start until all three are complete and `ctest` is green.
 - **Verify:** build + hardware
 - **Covers:** 1, 2
 - **Done when:** Exactly one USB interface is declared: MIDI, one virtual cable, one IN endpoint. **No CDC, no MSC, no vendor interface.**
+
+  **T15 owns `src/midi/tusb_config.h`**, stubbed in T01 with `CFG_TUD_ENABLED 0`. Change it to `1`, enable the MIDI device class, and size the endpoint buffers. The stub comment marking it T01-owned must be removed.
 
   Every descriptor value comes from the table in **PRD §9.1** — VID, PID, `bcdDevice`, all three string descriptors, and the MIDI embedded IN jack string. Do not invent values and do not fall back to SDK defaults. The serial is derived at runtime from `pico_get_unique_board_id_string()`, not hardcoded.
 

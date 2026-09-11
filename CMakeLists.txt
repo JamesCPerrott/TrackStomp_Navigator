@@ -1,0 +1,60 @@
+cmake_minimum_required(VERSION 3.13...3.27)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+set(PICO_BOARD pico2)
+set(PICOTOOL_FETCH_FROM_GIT_PATH $ENV{HOME}/pico/picotool-build)
+
+if (NOT PICO_SDK_PATH AND NOT DEFINED ENV{PICO_SDK_PATH})
+    message(FATAL_ERROR "PICO_SDK_PATH is unset. Point it at Pico SDK 2.3.1 or later.")
+endif()
+
+# initialize the SDK based on PICO_SDK_PATH
+# note: this must happen before project()
+include(pico_sdk_import.cmake)
+
+if (PICO_SDK_VERSION_STRING VERSION_LESS "2.3.1")
+    message(FATAL_ERROR
+        "Raspberry Pi Pico SDK 2.3.1 or later is required. Found ${PICO_SDK_VERSION_STRING}."
+    )
+endif()
+
+project(trackstomp_navigator C CXX ASM)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+
+option(DEBUG_UART "Enable UART-only stdio on GP0/GP1" OFF)
+
+pico_sdk_init()
+
+add_executable(trackstomp_navigator
+    src/main.cpp
+    src/input/buttons.cpp
+    src/sequencer/sequencer.cpp
+    src/midi/midi_out.cpp
+    src/midi/usb_descriptors.c
+    src/storage/config_store.cpp
+    src/ui/ui.cpp
+)
+
+target_include_directories(trackstomp_navigator PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/midi
+)
+
+target_link_libraries(trackstomp_navigator
+    pico_stdlib
+    tinyusb_device
+    hardware_flash
+    hardware_sync
+)
+
+pico_enable_stdio_usb(trackstomp_navigator 0)
+if (DEBUG_UART)
+    pico_enable_stdio_uart(trackstomp_navigator 1)
+else()
+    pico_enable_stdio_uart(trackstomp_navigator 0)
+endif()
+
+pico_add_extra_outputs(trackstomp_navigator)
