@@ -318,6 +318,30 @@ from sequencer init.
 
 ---
 
+## Q011 — [ASSUMED] — T14
+
+**Task:** T14 gpio-input
+**Raised:** 2026-09-11
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+`buttons_init()` configures GP6–GP15 as inputs with internal pull-ups and
+is called from `main` at boot. It is a no-op under `HOST_TEST`.
+`buttons_gpio_levels()` is a single masked `gpio_get_all()`. The debounce
+scan loop is still T20. On-device confirmation is hardware (T22).
+
+**Reasoning:**
+T20 owns the main loop. Init must happen before any scan, so boot is the
+right site (same as T13's `ui_indicate_channel`). Host tests keep the
+harness `buttons_gpio_levels()` in `gpio_host.cpp`.
+
+**Cost to reverse:** low — move init into `buttons_scan` first tick, or
+fold it into T20.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._

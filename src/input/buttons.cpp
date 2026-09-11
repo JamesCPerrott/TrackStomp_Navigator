@@ -2,12 +2,17 @@
 
 #include "config.h"
 
+#ifndef HOST_TEST
+#include "hardware/gpio.h"
+#endif
+
 #include <cstddef>
 #include <cstdint>
 
 namespace {
 
 constexpr std::size_t kEventQueueSize = 16;
+constexpr uint32_t kButtonGpioMask    = ((uint32_t{1} << BUTTON_COUNT) - 1U) << BUTTON_GPIO_BASE;
 
 enum class LockKind : uint8_t { None, Button, Chord };
 
@@ -303,8 +308,18 @@ uint32_t buttons_chord_start() {
     return g_chord_start;
 }
 
+void buttons_init() {
+#ifndef HOST_TEST
+    gpio_init_mask(kButtonGpioMask);
+    gpio_set_dir_in_masked(kButtonGpioMask);
+    for (uint8_t i = 0; i < BUTTON_COUNT; ++i) {
+        gpio_pull_up(BUTTON_GPIO_BASE + i);
+    }
+#endif
+}
+
 #ifndef HOST_TEST
 uint32_t buttons_gpio_levels() {
-    return 0xFFFFFFFFU;
+    return gpio_get_all() & kButtonGpioMask;
 }
 #endif
