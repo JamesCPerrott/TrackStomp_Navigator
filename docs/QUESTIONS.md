@@ -567,6 +567,131 @@ built binary" bar without stripping debug info needed for local dumps.
 
 ---
 
+## Q021 — [ASSUMED] — Phase 9 / T26
+
+**Task:** T26 switch-led-engine
+**Raised:** 2026-09-19
+**Type:** ASSUMPTION — interpretation of PRD §11.5.4
+
+**Assumed:**
+The hold confirmation envelope is a **floor, not a fixed duration**. The LED is
+solid from the hold fire, for at least `LED_CONFIRM_MS`, and never goes dark
+while the button is still physically pressed.
+
+**Reasoning:**
+The source brief said "illuminated for 5 seconds"; the review answer said
+"stays lit until the button is released". Both are honoured by taking the
+longer of the two. A quick release still gets a full, readable 5 s
+confirmation, and a long hold never leaves the operator without indication
+while §6.4 is silently discarding everything they do.
+
+**Cost to reverse:** low — criteria 68 and 69 are the two halves; drop one.
+
+**ANSWER (only if overriding):**
+
+---
+
+## Q022 — [ASSUMED] — Phase 9 / T26
+
+**Task:** T26 switch-led-engine
+**Raised:** 2026-09-19
+**Type:** ASSUMPTION — architecture
+
+**Assumed:**
+The button(s) behind a cue are recovered by **reverse lookup in `CUE_TABLE`**
+(T24), not by extending `UiEvent` and not by inspecting `ButtonEvent` in the
+`ui` layer.
+
+**Reasoning:**
+The per-switch engine must light the buttons that produced a cue, but
+`UiEvent{Sent, note}` carries only the note. Extending the struct or inserting
+a new event kind would turn T08–T13's ordered `UiEvent` assertions red for
+reasons unrelated to any defect. Reading `ButtonEvent` from `ui` would repeat
+the Q008/Q009 back-channel. Reverse lookup uses §6.2's single source of truth
+in the direction it already supports and changes no finished contract.
+
+**Cost to reverse:** medium — it would mean revisiting the `UiEvent` contract
+and every test that asserts on it.
+
+**ANSWER (only if overriding):**
+
+---
+
+## Q023 — [ASSUMED] — Phase 9 / T26
+
+**Task:** T26 switch-led-engine
+**Raised:** 2026-09-19
+**Type:** ASSUMPTION — behaviour under collision
+
+**Assumed:**
+**Cancel and override are different mechanisms.** An accepted `ButtonEvent`
+destroys a running confirmation immediately and it never resumes. Chord
+progress instead *suspends* what sits beneath it and restores it on abort. A
+press discarded by the §6.4 lockout is not an accepted event and cancels
+nothing.
+
+**Reasoning:**
+Confirmations run a full 5 s, so a cue arriving mid-confirmation is the common
+case. §11.4.4 already set the precedent that musical feedback outranks
+confirmation. Chord progress is modelled on §11.4.3, which explicitly returns
+to the underlying state on abort.
+
+**Cost to reverse:** low — it is one branch in the priority resolver.
+
+**ANSWER (only if overriding):**
+
+---
+
+## Q024 — [ASSUMED] — Phase 9 / T25
+
+**Task:** T25 switch-led-harness
+**Raised:** 2026-09-19
+**Type:** ASSUMPTION — harness API
+
+**Assumed:**
+`harness_lamp_trace()` and `REQUIRE_LAMP` keep their exact current signature
+and meaning. Per-switch capture is a **parallel** API
+(`harness_switch_trace()`, `REQUIRE_SWITCH_LEDS`), not a widening of the
+existing one. `REQUIRE_SWITCH_LEDS` is an exact match, not a subset match.
+
+**Reasoning:**
+T10–T13 assert waveforms from the lamp trace. Changing its element type would
+turn finished tests red across four tasks. An exact mask match is required
+because PRD §11.5.3 permits only one indication at a time — a subset matcher
+would pass while an extra LED was wrongly lit, which is the defect criterion
+78 exists to catch.
+
+**Cost to reverse:** low while T25 is the only consumer; high afterwards.
+
+**ANSWER (only if overriding):**
+
+---
+
+## Q025 — [ASSUMED] — Phase 9 / T27
+
+**Task:** T27 switch-led-setup-chord
+**Raised:** 2026-09-19
+**Type:** ASSUMPTION — behaviour not specified in the source brief
+
+**Assumed:**
+LEDs 6 and 9 mirror the §11.4.3 chord progress pattern — 500 ms of full
+darkness across the whole surface, then 125/125 in phase — and Setup Mode exit
+extinguishes all ten switch LEDs with no exit confirmation. Boot lights the
+stored channel's LED solid for 2000 ms.
+
+**Reasoning:**
+The source brief covered setup entry and channel selection but was silent on
+chord progress and boot, and explicitly said exit means "LED off". Mirroring
+§11.4.3 keeps one chord behaviour rather than two. The panel LED's §11.4.4
+channel blink already confirms exit, so repeating it here would add nothing.
+Boot indication is additive and costs one constant.
+
+**Cost to reverse:** low — each is an independent indication source.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._
