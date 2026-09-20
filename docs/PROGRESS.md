@@ -1,12 +1,16 @@
-LOOP-STATUS: COMPLETE
+LOOP-STATUS: NOT STARTED — Phase 9
 
 # Progress log
 
 Append-only. Never rewrite or delete a prior entry — the record of what was tried and abandoned is the point. If an earlier entry turns out to be wrong, add a new entry saying so.
 
-The loop reads the most recent entry on each wake to find where it left off. **Human-completed tasks are logged here in the same format** — T01, T02, and T03 are done interactively before the loop starts, and the loop will refuse to run until it sees them here and in the task list.
+The loop reads the most recent entry on each wake to find where it left off. **Human-completed tasks are logged here in the same format** — each phase has bootstrap tasks done interactively before the loop starts, and the loop will refuse to run until it sees them here and in the task list.
 
 `LOOP-STATUS` on line 1 is the only mutable content in this file. Values: `NOT STARTED`, `RUNNING`, `HALTED — <reason>`, `COMPLETE`.
+
+**`LOOP-STATUS` is scoped to the phase named on the line, not to the project.** v1 (T01–T21) reached `COMPLETE` on 2026-09-11; that fact now lives in the T21 entry and the Phase 9 divider below, not in the status line. A new phase resets the line. Without this, the first thing a Phase 9 loop reads is a `COMPLETE` it did not earn.
+
+**Record real commit SHAs from here on.** Every v1 entry reads `(this commit)`, which is self-consistent but leaves no way to identify the firmware a validation run actually tested. T22 and T29 both require a firmware commit in `VALIDATION.md`; get it from `git log` rather than back-filling it from this file.
 
 ---
 
@@ -659,3 +663,42 @@ None.
 T01–T21 are committed after this push. T22–T23 are human hardware
 validation and are outside the loop.
 
+---
+
+# Phase 9 — Per-switch status LEDs
+
+v1 closed here. **T01–T21 complete, merged to `master`, `ctest` green, firmware running on
+hardware.** T22 and T23 remain outstanding and are hardware-only; they are not blockers for Phase 9,
+which is entirely host-testable except T29.
+
+Phase 9 implements PRD §11.5 — ten status LEDs, one above each footswitch, on GP5/GP4/GP3/GP2 and
+GP22 down to GP17. It supersedes the v2 display: GP4 and GP5 were the reserved I2C pins.
+
+## Bootstrap — required before the loop may run
+
+T24 and T25 are human-led and must be logged here, in the standard entry format, before
+`LOOP-PROMPT.md`'s precondition will pass.
+
+**T24 — cue-table-reverse-lookup.** Its entry must record that the reverse direction is derived from
+`CUE_TABLE` rather than from a second hardcoded list, and that every entry round-trips.
+
+**T25 — switch-led-harness.** Its entry must explicitly record that **the matcher was proven to
+fail** — a test asserting a deliberately wrong mask was written, observed failing with `file:line`,
+and then corrected. This is not ceremony. T03 carried the same requirement because a harness whose
+assertions cannot fail reports green for every task after it, and T25 is that same risk on a new
+surface. The Phase 9 loop prompt checks this log for the statement and halts if it is absent.
+
+Both entries should also confirm `ctest` is green including T10–T13, since the whole phase depends on
+the §11.4 panel engine staying untouched.
+
+## Standing note for every Phase 9 entry
+
+Each entry must state whether criteria **41–56 still pass**. The per-switch engine lives beside the
+finished panel-LED engine in the same module, and a regression there is the most likely way this
+phase does damage. Recording it per task is what makes that visible at a glance across the run rather
+than at the end of it.
+
+Questions for this phase start at **Q026**. Q021–Q025 are the assumptions recorded when §11.5 was
+specified; they are decisions already made, not open items.
+
+---

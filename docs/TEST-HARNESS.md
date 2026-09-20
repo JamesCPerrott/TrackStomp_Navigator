@@ -27,7 +27,7 @@ harness_advance_to(HOLD_MS); // now == 2000, not 2001
 
 Buttons are logical **1–10**. Tests never mention GP numbers. The host `buttons_gpio_levels()` mask is active-low using `BUTTON_GPIO_BASE` for T04/T14.
 
-After each pipeline step the harness drains `buttons_poll_event`, `sequencer_poll_command`, and `sequencer_poll_ui_event` into capture buffers and appends `ui_lamp()` to the lamp trace (one sample per processed timestamp).
+After each pipeline step the harness drains `buttons_poll_event`, `sequencer_poll_command`, and `sequencer_poll_ui_event` into capture buffers and appends `ui_lamp()` to the lamp trace and `ui_switch_leds()` to the switch trace (one sample each per processed timestamp).
 
 ---
 
@@ -190,11 +190,84 @@ REQUIRE(!trace.empty());
 
 ### `void harness_clear_captures()`
 
-Clear command, UI, button, and lamp-trace buffers. Does not move the clock or change GPIO.
+Clear command, UI, button, lamp-trace, and switch-trace buffers. Does not move the clock or change GPIO.
 
 ```cpp
 harness_clear_captures();
 REQUIRE_NO_COMMANDS();
+```
+
+---
+
+## Per-switch LEDs (PRD §11.5)
+
+A parallel surface to the panel lamp, captured the same way. **`harness_lamp_trace()` and
+`REQUIRE_LAMP` are unchanged** — they still refer to the GP16/GP25 panel LED only, and T10–T13
+continue to assert against them exactly as written.
+
+State is a **10-bit mask**, bit 0 being LED 1 (above button 1) through bit 9 being LED 10. Tests
+name logical buttons, never GP numbers.
+
+### `SWITCH_LED(n)`
+
+Mask for one LED, `n` being 1–10. Combine with `|`.
+
+```cpp
+REQUIRE_SWITCH_LEDS(SWITCH_LED(1) | SWITCH_LED(6));
+```
+
+### `uint16_t harness_switch_leds()`
+
+Current `ui_switch_leds()` value.
+
+```cpp
+REQUIRE(harness_switch_leds() == SWITCH_LED(3));
+```
+
+### `REQUIRE_SWITCH_LEDS(mask)` / `REQUIRE_NO_SWITCH_LEDS()`
+
+Exact match on the current mask. `REQUIRE_NO_SWITCH_LEDS()` is the same as passing 0.
+
+These are **exact**, not subset, matches. PRD §11.5.3 permits only one indication at a time, so a
+test that passes while an unexpected LED is also lit would hide precisely the defect criterion 78
+exists to catch.
+
+```cpp
+harness_press(1);
+harness_release(1);
+harness_advance(DEBOUNCE_MS);
+REQUIRE_SWITCH_LEDS(SWITCH_LED(1));   // pending flash, on phase
+```
+
+### `const std::vector<uint16_t>& harness_switch_trace()`
+
+One mask per processed timestamp. Index `t` is the sample taken when `now == t` after a reset
+(until `harness_clear_captures()`). Waveform assertions in T26–T27 read this.
+
+```cpp
+harness_advance(LED_CONFIRM_MS);
+const std::vector<uint16_t>& trace = harness_switch_trace();
+REQUIRE(trace.at(LED_SELF_PAIR_ON_MS + 1U) == 0U);   // inside the self-pair notch
+```
+
+### `uint8_t harness_switch_led_count()`
+
+Number of bits set in the current mask. The cheap guard for criterion 78.
+
+```cpp
+REQUIRE(harness_switch_led_count() <= 2U);
+```
+
+### Shape for waveform tests
+
+Assert both edges of every transition, the same way `test_timing.cpp` brackets a threshold. A test
+that only checks the lit state will pass against an engine that never turns the LED off.
+
+```cpp
+harness_advance_to(LED_CONFIRM_MS - 1U);
+REQUIRE_SWITCH_LEDS(SWITCH_LED(1) | SWITCH_LED(6));
+harness_advance_to(LED_CONFIRM_MS);
+REQUIRE_NO_SWITCH_LEDS();
 ```
 
 ---
@@ -244,7 +317,9 @@ struct UiEvent {
 };
 ```
 
-`src/ui/ui.h` exposes `ui_tick(now)` and `ui_lamp()`.
+`src/ui/ui.h` exposes `ui_tick(now)`, `ui_lamp()`, and `ui_switch_leds()`.
+
+`ui_lamp()` returns the panel LED boolean (§11.4). `ui_switch_leds()` returns the 10-bit per-switch mask (§11.5). The two engines are independent; neither reads the other.
 
 ---
 

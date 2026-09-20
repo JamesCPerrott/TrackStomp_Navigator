@@ -1,4 +1,4 @@
-# TASK-LIST — USB MIDI Foot Controller v1
+# TASK-LIST — USB MIDI Foot Controller
 
 Companion to `PRD.md`. Every task below is scoped to be completed and committed independently.
 
@@ -44,7 +44,7 @@ After each task, append a dated entry to `PROGRESS.md`: task ID, what was done, 
 **Out of scope. Do not implement, do not research, do not prepare for:**
 
 - **PRD §5.2 Tier 2 hardening.** No OTP fuse operations. No secure boot signing. No disabling of the UF2 bootloader or SWD debug. These operations are **irreversible and will permanently brick the board**. If any task appears to require them, stop and ask. Tier 1 (§5.1) is fully in scope and is the whole of the security work for v1.
-- Display / I2C driver (v2). Pins are reserved only.
+- Display / I2C driver. **Superseded by PRD §11.5** — GP4/GP5 now carry status LEDs. A display is a v3 item and is out of scope.
 - Bluetooth, WiFi, BLE MIDI (v3).
 - Expression pedal / ADC input.
 - Runtime-editable cue mappings, preset banks.
@@ -374,9 +374,114 @@ Human-executed. **Do not loop on these.** Each requires physical switches, a MID
 - **Covers:** 58, 59
 - **Done when:** 30 minutes of randomised input including partial chord attempts produces no hang, no unexpected notes, and no stuck LED state. Results appended to `VALIDATION.md`.
 
+
 ---
 
-## Loop exit condition
+# Phase 9 — Per-switch status LEDs
+
+Added after v1 was merged. Implements PRD §11.5. **Read §11.5 in full before starting T24** — the one-indication-at-a-time rule in §11.5.3 constrains every task in this phase, and an engine that composites independent per-LED states will pass individual tests and fail criterion 78.
+
+## Scope boundary for this phase
+
+**The panel LED engine of §11.4 is finished work and is out of scope.** Do not modify `ui_lamp()`, its pattern engine, its tests, or its GP16/GP25 driver. Criteria 41–56 must still pass unchanged at every commit (criterion 81). The per-switch engine is a *second, independent* engine living beside it inside `ui`.
+
+**The `UiEvent` contract does not change.** No new `UiEventKind`, no new field, no change to what any existing event carries. This is deliberate: T08–T13 assert ordered `UiEvent` lists, and inserting or altering an event would turn finished tests red for reasons that have nothing to do with a defect. The button(s) behind a cue are recovered by reverse lookup in `CUE_TABLE` (T24), not from the event stream and not by inspecting `ButtonEvent`.
+
+**`harness_lamp_trace()` does not change.** Its signature, its meaning, and its one-sample-per-timestamp behaviour are relied on by T10–T13. The per-switch trace is a parallel API (T25).
+
+**Branching.** T24 branches from `master` — v1 is merged, so the v1 stack is history. T25 onward stack normally, each from its predecessor's branch.
+
+### T24 — cue-table-reverse-lookup
+- **Status:** not started
+- **Branch:** `task/T24-cue-table-reverse-lookup`
+- **Commit:** `T24: add reverse lookup from cue note to originating buttons`
+- **Depends on:** — (branch from `master`)
+- **PRD:** §6.2, §11.5.4, §12.1
+- **Verify:** host
+- **Covers:** —
+- **Done when:** A pure function in the T02 cue-table module maps a transmitted note back to the button or buttons that produced it, returning a small struct carrying the cue class (pair, self-pair, standalone, hold) and one or two button ids. **Additive only** — no existing signature changes and no existing test is touched.
+
+  All 33 notes round-trip. Host tests assert: note 0 → pair(1, 6); note 24 → self-pair(3); note 20 → standalone(10); note 27 → hold(1); note 32 → hold(8); note 21 → hold(10). An unmapped note returns a clearly invalid result rather than a plausible wrong one, and a test asserts that.
+
+  The table stays the single source of truth per §6.2 — the reverse direction is derived from `CUE_TABLE`, never a second hardcoded list. A test asserting that every entry in `CUE_TABLE` round-trips is the guard against that drifting.
+
+### T25 — switch-led-harness
+- **Status:** not started
+- **Branch:** `task/T25-switch-led-harness`
+- **Commit:** `T25: extend the host harness with per-switch LED capture`
+- **Depends on:** T24
+- **PRD:** §11.5.1, §11.5.3
+- **Verify:** host
+- **Covers:** —
+- **Done when:** The harness captures per-switch LED state per processed timestamp, per `TEST-HARNESS.md`. `ui_switch_leds()` exists and returns a 10-bit mask, bit 0 being LED 1; for this task it may return a stub 0. `harness_switch_trace()`, `REQUIRE_SWITCH_LEDS(...)`, and `REQUIRE_NO_SWITCH_LEDS()` are available and documented.
+
+  **This is the bootstrap task of the phase and it carries T03's risk: a harness whose assertions cannot fail will report green for every task after it.** Before this task is complete, prove the matcher fails — write a test that asserts the wrong mask, confirm it fails with `file:line`, then correct it. `harness_lamp_trace()` is unchanged and T10–T13 still pass.
+
+### T26 — switch-led-engine
+- **Status:** not started
+- **Branch:** `task/T26-switch-led-engine`
+- **Commit:** `T26: implement the per-switch indication engine with pending and confirmation states`
+- **Depends on:** T25
+- **PRD:** §11.5.3, §11.5.4
+- **Verify:** host
+- **Covers:** 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 78, 79, 80
+- **Done when:** The engine implements the §11.5.3 priority stack and the §11.5.4 waveforms, driven by the existing `UiEvent` stream plus T24's reverse lookup. **One indication is visible at a time** — the engine resolves priority to a single active indication owning one or two LEDs and emits a mask with every other bit clear. It does not composite independent per-LED states.
+
+  Cancel and override are distinct mechanisms and are implemented as such: an accepted `ButtonEvent` destroys a confirmation, while chord progress (T27) suspends and restores what sits beneath it. A press discarded by lockout cancels nothing.
+
+  The hold envelope is a floor, not a ceiling — solid from the hold fire, for at least `LED_CONFIRM_MS`, and never ending before the button is released. Criteria 68 and 69 are the two halves of this and both must pass.
+
+  No `sleep_ms`, no blocking, no allocation. Advanced only by its tick function.
+
+### T27 — switch-led-setup-chord
+- **Status:** not started
+- **Branch:** `task/T27-switch-led-setup-chord`
+- **Commit:** `T27: add setup channel, chord progress, and boot indication to the switch LEDs`
+- **Depends on:** T26
+- **PRD:** §11.5.5, §11.5.6, §11.5.7
+- **Verify:** host
+- **Covers:** 71, 72, 73, 74, 75, 76, 77
+- **Done when:** Chord progress occupies priority 2 and overrides the whole surface — 500 ms of full darkness including a live pending flash, then 6 and 9 in phase at 125/125, then straight to the setup channel blink at 5000 ms. Abort restores the suspended indication on the same tick; re-form restarts the blackout.
+
+  Setup Mode blinks the selected channel's LED at 1000/1000, starting from the **on** phase on every selection change, and continues through `LOCKED(CHORD)` until both 6 and 9 are released. Exit by either route extinguishes all ten.
+
+  Boot lights the stored channel solid for `LED_BOOT_CHANNEL_MS`, cancellable by any press.
+
+  Chord timing may be read via the same `buttons_chord_start()` accessor the §11.4 engine already uses. That is an existing pattern (QUESTIONS Q009), not a new one — do not add a second mechanism.
+
+### T28 — switch-led-driver
+- **Status:** not started
+- **Branch:** `task/T28-switch-led-driver`
+- **Commit:** `T28: drive the ten per-switch status LEDs from the indication engine`
+- **Depends on:** T27
+- **PRD:** §11.5.1, §11.5.2
+- **Verify:** build + hardware
+- **Covers:** —
+- **Done when:** The engine's per-tick mask drives all ten GPIOs from `SWITCH_LED_GPIO` in a single `gpio_put_masked()` call, with **no inversion** — the low-side NPN is non-inverting, so high means lit, exactly as on GP16. Pad drive strength is 4 mA on all ten pins. The bit-position mask is built from the constant table; the pins are **not** contiguous and nothing may assume they are.
+
+  Thin shim only. No pattern logic, no timing, no state in this layer — it mirrors T17's shape.
+
+  `SWITCH_LED_DUTY` is wired but uniform at 255. Do not implement PWM ramping or use duty for signalling; §11.5.2 confines it to brightness matching.
+
+### T29 — switch-led-bench
+- **Branch:** `task/T29-switch-led-bench`
+- **Commit:** `T29: record per-switch LED bench validation results`
+- **Depends on:** T28, and T22
+- **Verify:** hardware
+- **Covers:** 81, 82, 83
+- **Done when:** `VALIDATION.md` records pass/fail for criteria 61–83 with the date and firmware commit. A 240 fps camera is needed for 64, 65, 66, and 71. Confirm the two-LED ceiling of criterion 78 by observation across a full session, confirm brightness uniformity through the finished panel from standing height, and re-run criteria 41–56 to confirm the panel LED is genuinely unaffected.
+
+  **Measure the LED series resistor on the bench before finalising it.** §11.5.2 sizes 100 Ω against a 3.6 V nominal forward voltage with under a volt of headroom, so the real value depends on the parts in hand and on how the finished panel reads on a dark stage.
+
+---
+
+## Loop exit condition — Phase 9
+
+Phase 9 is done with the automated portion when **T24–T28 are committed and pushed, and `ctest` is green covering criteria 61–82**, with 41–56 still passing. Criterion 83 is hardware-only (T29). Do not attempt it.
+
+---
+
+## Loop exit condition — v1 (historical)
 
 The loop is done with the automated portion when **all of T01–T21 are committed and pushed, and `ctest` is green covering acceptance criteria 4–56 minus the hardware-only ones**.
 

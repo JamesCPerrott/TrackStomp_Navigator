@@ -450,13 +450,15 @@ One erase cycle per channel change. Flash endurance is on the order of 100,000 c
 | Signal | GPIO |
 |---|---|
 | Buttons 1–10 | GP6 – GP15 (contiguous, in order) |
-| Reserved: I2C0 SDA / SCL (v2 display) | GP4 / GP5 |
+| Per-switch status LEDs 1–10 | GP5, GP4, GP3, GP2, GP22, GP21, GP20, GP19, GP18, GP17 (§11.5.1) |
 | Reserved: ADC (future expression) | GP26 / GP27 / GP28 |
 | Panel status LED | GP16 |
 | Onboard LED (bench debug mirror) | GP25 |
 | Debug UART (debug builds only) | GP0 / GP1 |
 
-Contiguous button pins allow a single masked `gpio_get_all()` read per scan.
+Contiguous button pins allow a single masked `gpio_get_all()` read per scan. The LED pins are **not** contiguous and must be driven through a bit-position table — see §11.5.1.
+
+**GP4 and GP5 are no longer reserved for I2C0.** They carry LEDs 2 and 1. The v2 display of §16 is superseded by §11.5.
 
 **GP25 is not exposed on the Pico 2 header.** The 40-pin header brings out GP0–GP22 and GP26–GP28 only; GP25 is wired solely to the onboard LED. The panel LED therefore uses GP16. Both are driven from the same pattern-engine output, so the onboard LED remains usable as a bench-debug mirror while the enclosure is open.
 
@@ -572,6 +574,127 @@ The boot-time blink means the operator always knows the current channel without 
 
 ---
 
+### 11.5 Per-switch status LEDs
+
+Ten LEDs, one directly above each footswitch, are the primary feedback surface. **The panel LED of §11.4 is unchanged.** The two surfaces run independent engines, never share state, and are never required to agree — §11.4 remains the fallback indication and its acceptance criteria (41–56) continue to apply exactly as written.
+
+Throughout this section, *LED N* means the LED above button N. The correspondence is fixed and is never remapped at runtime.
+
+#### 11.5.1 Pin assignment
+
+| Button | Button GPIO | LED GPIO |
+|---|---|---|
+| 1 | GP6 | GP5 |
+| 2 | GP7 | GP4 |
+| 3 | GP8 | GP3 |
+| 4 | GP9 | GP2 |
+| 5 | GP10 | GP22 |
+| 6 | GP11 | GP21 |
+| 7 | GP12 | GP20 |
+| 8 | GP13 | GP19 |
+| 9 | GP14 | GP18 |
+| 10 | GP15 | GP17 |
+
+The LED pins are deliberately **not** contiguous — they run GP5 down to GP2, then GP22 down to GP17 — because that ordering minimises trace crossings between the Pico header and a switch row laid out left to right. A single `gpio_put_masked()` still drives all ten in one write; the engine holds a bit-position table rather than assuming an ordered range. **Do not assume `LED_GPIO[n] == LED_GPIO[0] - n`.**
+
+**GP4 and GP5 are no longer reserved for I2C0.** The v2 display described in §16 is superseded by this section. If a display is ever revived, I2C0 moves to GP0/GP1 and the debug UART moves or is dropped; that is a v3 decision, not a reservation carried here.
+
+#### 11.5.2 Electrical
+
+Topology is identical to §11.2 — a low-side NPN per LED from VBUS, non-inverting, GPIO high means lit. The LED is not driven from the 3.3 V rail, and the transistor is not optional: the ESD-diode argument in §11.2 applies unchanged to all ten pins.
+
+```
+VBUS (5V) ──▶|── LED (blue) ──[ 100Ω ]── C
+                                          │
+                                     NPN (2N3904)
+                                          │
+LED_GPIO ──[ 2.2kΩ ]── B                  E ── GND
+```
+
+| Part | Value |
+|---|---|
+| LED | Blue 5 mm, Vf 3.6 V at 30 mA rated (Dialight) |
+| LED series resistor | 100 Ω (collector leg) |
+| Transistor | 2N3904 (TO-92) ×10 |
+| Base resistor | 2.2 kΩ ×10 |
+| Pad drive strength | 4 mA on all ten pins |
+
+**Current budget.** At worst case VBUS of 4.75 V: 4.75 − 3.6 (LED) − 0.2 (V_CE saturated) leaves 0.95 V across 100 Ω, so ≈ 9.5 mA, rising to ≈ 12 mA at a nominal 5 V. §11.5.3 guarantees **at most two LEDs are ever lit simultaneously**, so the whole array draws under 25 mA. This is why no external supply, no output-enable line, and no enumeration-time blanking are required.
+
+**Headroom and trim.** 0.95 V is low headroom, so LED current is sensitive to forward-voltage spread between parts — a 3.4 V and a 3.8 V LED sharing the same resistor can differ by nearly a factor of two in current. Buy all ten from one reel. If brightness still reads uneven through the finished panel, compensate with the per-LED PWM duty constants (§13) rather than by changing resistors. Those constants are a **brightness-matching mechanism only** — duty is never used to signal anything, and every pattern in this section is plain on or off.
+
+Check the maximum forward voltage on the datasheet, not the typical, before committing the resistor value. Raise the series resistor if the finished panel reads bright on a dark stage; §11.2's reasoning about over-driven indicators applies with ten times the force.
+
+#### 11.5.3 Indication model
+
+**Exactly one indication is visible at any instant.** It owns one or two LEDs; every other switch LED is off. There is no compositing, no per-LED independence, and no state in which three or more LEDs are lit. This is the same discipline as §11.4.1 — the surface shows one thing at a time — and it is what makes the whole engine testable as a single waveform.
+
+| Priority | Source | LEDs | Pattern |
+|---|---|---|---|
+| 1 | Setup channel (§11.5.5) | N | 1000 ms on / 1000 ms off |
+| 2 | Chord progress (§11.5.6) | 6 and 9 | Dark 500 ms, then 125 / 125 |
+| 3 | Hold confirmation (§11.5.4) | Held button | Solid |
+| 4 | Cue confirmation (§11.5.4) | 1 or 2 | Per waveform |
+| 5 | Pending sequence | Prefix | 125 ms on / 125 ms off |
+| 6 | Idle | — | All off |
+
+Two different mechanisms end an indication, and they are not interchangeable:
+
+- **Override.** Chord progress (priority 2) *suspends* what sits beneath it. A pending flash underneath survives and resumes on the same tick the chord aborts. This mirrors §11.4.3 exactly.
+- **Cancel.** Any accepted `ButtonEvent` destroys a running confirmation (priorities 3 and 4) immediately, on the tick it arrives. A cancelled confirmation never resumes. The rationale is §11.4.4's: musical feedback outranks confirmation, and with confirmations running a full five seconds, a cue arriving mid-confirmation is the common case rather than the exception.
+
+A press discarded by the §6.4 lockout is not an accepted event and cancels nothing.
+
+**The pending flash and the chord flash share a 125 ms rate.** This is deliberate and accepted: the two never mean the same thing because position disambiguates them, and the case where both would be live at once (pending on a prefix, then 6+9 pressed) is precisely the case where chord progress overrides the pending flash and only 6 and 9 are lit. The panel LED's simultaneous 1000 ms pending flash remains the rate-distinct signal §11.4.1 requires.
+
+#### 11.5.4 Confirmation waveforms
+
+Every confirmation runs a **5000 ms envelope** (`LED_CONFIRM_MS`). The three cue classes differ only in what happens inside it.
+
+| Cue class | Example | LEDs | Waveform |
+|---|---|---|---|
+| Pair | Tap 1, tap 6 → note 0 | Prefix and suffix | Solid for 5000 ms |
+| Self-pair | Tap 3, tap 3 → note 24 | Prefix only | 2000 on, 1000 off, 2000 on |
+| Standalone | Tap 10 → Repeat | LED 10 | 1000 on, 1000 off, 1000 on, 1000 off, 1000 on |
+| Hold | Hold 1 to 2 s → note 27 | Held button | Solid — see below |
+| Boot channel | Power-on | Stored channel | Solid for 2000 ms |
+
+- A **pair** lights both buttons that produced the cue, so the operator sees the sequence they actually played rather than a generic acknowledgement.
+- A **self-pair** lights one LED and must therefore be distinguishable from a pair by waveform alone, which is what the 1000 ms notch in the middle provides.
+- A **standalone** tap of 10 uses the same waveform whether it fires from IDLE or from PENDING. When it fires from PENDING, the abandoned prefix's LED extinguishes on the same tick (§8.3 discards the pending sequence).
+- A **hold** is solid from the instant the hold command fires. The envelope is a **minimum, not a maximum**: the LED stays lit for at least `LED_CONFIRM_MS`, and never goes dark while the button remains physically pressed. §6.4 discards all input during lockout, so an LED that went dark at 5 s while the operator was still standing on the switch would give no indication that everything they do is being swallowed. The LED therefore means *this button is still doing something*.
+
+Holds of buttons 6, 7, and 9 fire no command (§6.3) and light no LED. An orphan suffix tap from IDLE lights no LED.
+
+#### 11.5.5 Setup Mode
+
+On entry at the 5000 ms chord threshold, chord progress ends and the channel indication begins immediately — including while `LOCKED(CHORD)` waits for both 6 and 9 to be released. The flash-to-blink transition is the entry confirmation on this surface, exactly as flash-to-solid is on the panel LED.
+
+- The LED for the **currently selected channel** blinks at 1000 ms on / 1000 ms off for as long as Setup Mode is active.
+- Tapping button N selects channel N (§7.2). The previous channel's LED extinguishes and LED N begins blinking **from its on phase** on the same tick, so a selection is always acknowledged by light rather than by darkness.
+- Holds do nothing in Setup Mode, and no MIDI is sent, so no confirmation waveform can occur here.
+- **On exit — by 6+9 tap or by 30 s inactivity — all ten switch LEDs go off.** There is no exit confirmation on this surface. The panel LED's channel blink (§11.4.4) is unchanged and remains the exit confirmation, which is why duplicating it here would add nothing.
+
+Because the channel and the LED share a number, Setup Mode needs no blink-counting on this surface at all. Channel 7 is simply the lit LED above button 7.
+
+#### 11.5.6 Chord progress
+
+While the 6+9 chord timer is armed, this indication owns the whole surface and mirrors §11.4.3's timing:
+
+- **0 – 500 ms (`CHORD_LED_DELAY_MS`):** every switch LED is forced off, including a live pending flash. An accidental graze of both buttons must not twitch anything.
+- **500 – 5000 ms:** LEDs 6 and 9 flash together, in phase, at `CHORD_LED_FLASH_MS` (125 on / 125 off).
+- **At 5000 ms:** straight to the Setup Mode channel blink (§11.5.5).
+- **On abort:** the override releases on the same tick and any indication beneath it resumes where it would have been.
+- **On re-form (§6.5):** the 500 ms blackout restarts along with the timer, so a restarted chord is visible rather than silent.
+
+#### 11.5.7 Boot
+
+At boot, after `config_store` reports the stored channel (§10), LED N is lit solid for `LED_BOOT_CHANNEL_MS` (2000 ms), then extinguished. A factory-fresh unit lights LED 1. Any button press cancels it, per the §11.5.3 cancel rule.
+
+This runs alongside the §11.4.4 boot channel blink on the panel LED. The two are independent and neither gates the other.
+
+---
+
 ## 12. Architecture
 
 ```
@@ -608,6 +731,9 @@ src/
 - `input` knows nothing about the command table or about channels. It reports taps, holds, and chord-holds; meaning is the sequencer's job.
 - `config_store` is called only at boot (read) and on setup exit (write). No other call site.
 - All timing constants live in `config.h`. No magic numbers anywhere else.
+- The per-switch LED engine (§11.5) is a **second, independent engine inside `ui`**. It shares no state with the §11.4 panel engine and must not alter it. `ui_lamp()` keeps its exact current meaning and behaviour.
+- The per-switch engine recovers the button(s) behind a cue by reverse lookup in `CUE_TABLE`, never by inspecting `ButtonEvent`. This keeps §6.2's single source of truth intact and leaves the `UiEvent` contract unchanged.
+- Neither LED engine may call `sleep_ms`. Both are advanced by their tick function only.
 
 ### 12.2 Main loop
 
@@ -658,6 +784,24 @@ constexpr uint32_t CUE_FLASH_GAP_MS     = 100;   // forced off before a cue flas
 constexpr uint32_t CHANNEL_BLINK_GAP_MS = 400;
 constexpr uint32_t CHANNEL_BLINK_ON_MS  = 150;
 constexpr uint32_t CHANNEL_BLINK_OFF_MS = 150;
+
+// Per-switch LED array (§11.5). Index 0 is button 1.
+constexpr uint8_t  SWITCH_LED_COUNT     = 10;
+constexpr uint8_t  SWITCH_LED_GPIO[SWITCH_LED_COUNT] =
+    { 5, 4, 3, 2, 22, 21, 20, 19, 18, 17 };
+
+// Per-switch LED timing (§11.5.3–§11.5.7)
+constexpr uint32_t LED_PENDING_FLASH_MS = 125;   // on and off; 250 ms period
+constexpr uint32_t LED_CONFIRM_MS       = 5000;  // confirmation envelope
+constexpr uint32_t LED_SELF_PAIR_ON_MS  = 2000;
+constexpr uint32_t LED_SELF_PAIR_OFF_MS = 1000;
+constexpr uint32_t LED_STANDALONE_MS    = 1000;  // on and off; five phases
+constexpr uint32_t LED_SETUP_BLINK_MS   = 1000;  // on and off; 2000 ms period
+constexpr uint32_t LED_BOOT_CHANNEL_MS  = 2000;
+
+// Brightness matching only (§11.5.2). Never used to signal state.
+constexpr uint8_t  SWITCH_LED_DUTY[SWITCH_LED_COUNT] =
+    { 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 };
 ```
 
 ---
@@ -746,6 +890,31 @@ constexpr uint32_t CHANNEL_BLINK_OFF_MS = 150;
 59. 30-minute soak with randomised input, including partial chord attempts, produces no hang and no unexpected notes.
 60. LED pattern playback never delays a cue by more than 10 ms (verifies the non-blocking pattern engine).
 
+**Per-switch LEDs (§11.5)**
+61. Tap 1 → LED 1 flashes at a 250 ms period; no other switch LED is lit at any point.
+62. Pending window expires with no second input → LED 1 goes off at exactly `SEQUENCE_TIMEOUT_MS` after the tap.
+63. Tap 2, then tap 4 → LED 2 extinguishes and LED 4 begins flashing on the same tick; LED 4 runs a fresh `SEQUENCE_TIMEOUT_MS`.
+64. Tap 1 then 6 → LEDs 1 and 6 both solid for exactly 5000 ms, then both off.
+65. Tap 3 then 3 → LED 3 on 2000, off 1000, on 2000, then off. Distinguishable from criterion 64 by waveform alone.
+66. Tap 10 from IDLE → LED 10 alternates at 1000 ms for five phases, ending lit, then off.
+67. Tap 2 then tap 10 → LED 2 extinguishes on the same tick LED 10 begins the standalone waveform.
+68. Hold 1 to `HOLD_MS`, release at 2100 ms → LED 1 solid from 2000 ms to 7000 ms. The envelope is honoured past release.
+69. Hold 1 to `HOLD_MS`, keep holding to 9000 ms → LED 1 stays solid until release. The envelope never truncates while the button is down.
+70. Any accepted button press during a running confirmation extinguishes it on that tick. A press discarded by lockout does not.
+71. Chord armed → all switch LEDs dark for `CHORD_LED_DELAY_MS`, then 6 and 9 flash in phase at 125/125. A live pending flash is suppressed for the duration.
+72. Chord aborted before 5000 ms → the suppressed pending flash resumes on the same tick.
+73. Chord re-formed per §6.5 → the 500 ms blackout restarts.
+74. Setup entered → the stored channel's LED blinks 1000/1000, including while waiting for 6 and 9 to be released.
+75. Tap 3 in setup → the previous channel's LED goes off and LED 3 begins blinking from its **on** phase, on the same tick.
+76. Exit setup by 6+9, and separately by 30 s timeout → all ten switch LEDs off.
+77. Boot → the stored channel's LED is solid for 2000 ms, then off. A factory-fresh unit lights LED 1.
+78. At most two switch LEDs are lit at any instant, in any state, across the full suite.
+79. Holding 6, 7, or 9 alone past `HOLD_MS` lights no switch LED.
+80. An orphan suffix tap from IDLE lights no switch LED.
+81. Criteria 41–56 all still pass unchanged. The panel LED on GP16 and its GP25 mirror are unaffected by this phase.
+82. Switch LED playback never delays a cue by more than 10 ms.
+83. *(hardware)* All ten LEDs read at comparable brightness from standing height through the finished panel. Any spread is corrected with `SWITCH_LED_DUTY`, not by changing resistors.
+
 ---
 
 ## 15. Open questions and assumptions
@@ -765,12 +934,20 @@ Each was decided to unblock implementation. Flag any that are wrong.
 | 9 | Is the bank split 1–5 / 6–10 as assumed? | Yes. Affects documentation and v2 display layout only. |
 | 10 | Are 2 s (hold) and 5 s (chord) right under a shoe? | Per spec. Both tunable. Note that at 2 s, a foot resting on button 8 mutes MIDI relatively easily — the shortest hold duration is a direct tradeoff against that. |
 | 11 | Security tier target? | Tier 1 for v1. Tier 2 fuses are irreversible; wait for a signed update path. |
+| 12 | Does the panel LED (§11.4) change now that per-switch LEDs exist? | **No.** Unchanged, and criteria 41–56 still apply. It is the fallback surface and its engine is already verified. |
+| 13 | Pending flash and chord flash share a 125 ms rate. Confusing? | No. Position disambiguates, and chord progress overrides pending, so the two are never lit at once. |
+| 14 | Should the valid suffix buttons light dimly during PENDING as an affordance? | Not implemented. It would put three to six LEDs on at once and break the one-indication rule of §11.5.3. Reconsider only with measured need. |
+| 15 | Should Setup Mode exit confirm on the switch LEDs? | No — they go off. The §11.4.4 channel blink on the panel LED is already the exit confirmation. |
+| 16 | Per-LED PWM: signalling dimension or brightness trim? | **Trim only.** Every pattern in §11.5 is plain on or off. Duty exists to compensate Vf spread. |
+| 17 | GP4/GP5 now carry LEDs, retiring the I2C reservation. Acceptable? | Yes. §16's v2 display is superseded; I2C0 could move to GP0/GP1 if a display is ever revived. |
 
 ---
 
 ## 16. Future iterations
 
-**v2 — Display.** I2C on GP4/GP5, reserved. Consumes the existing `UiEvent` stream. Must show pending-sequence state (e.g. `VERSE → ?`), lockout state, the last cue sent, and — importantly — replace the LED blink-counting in Setup Mode with a legible channel readout. If the display runs on core 1, switch flash writes to `flash_safe_execute` (§10.3).
+**v2 — Per-switch status LEDs. Superseded the display; see §11.5.** Ten LEDs above the ten footswitches deliver the pending, confirmation, lockout, and channel indication a display was going to provide, without an I2C bus, a driver, a framebuffer, or a failure-degradation path. Setup Mode needs no channel readout because the channel *is* the lit LED.
+
+**A display is not ruled out, but it is now a v3 item.** GP4/GP5 carry LEDs, so I2C0 would have to move to GP0/GP1 and the debug UART move or be dropped. A display would consume the existing `UiEvent` stream and, on core 1, require `flash_safe_execute` (§10.3).
 
 **v3 — Wireless.** The Pico 2 has no radio; Bluetooth or WiFi MIDI requires a Pico 2 W. Confirm the board variant before committing. BLE MIDI is not class-compliant USB and will need a separate transport beneath `midi_out`.
 
