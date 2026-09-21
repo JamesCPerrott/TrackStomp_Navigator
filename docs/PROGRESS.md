@@ -742,3 +742,48 @@ None.
 
 **Defects noted in earlier tasks (not fixed):**
 None.
+
+## T25 — switch-led-harness — 2026-09-21
+
+**Status:** complete
+**Branch:** task/T25-switch-led-harness
+**Commit:** (this commit)
+**Criteria covered:** —
+**Tests:** 1 added (switch_led_capture), 20 total, all green. pico2 `.uf2`
+produced. T10–T13 still pass (`led_pattern_engine`,
+`led_performance_patterns`, `led_chord_progress`, `led_channel_blink`), so
+criteria **41–56 still pass**. `harness_lamp_trace()` is unchanged.
+
+**Done:**
+Parallel per-switch capture beside the lamp trace: one `uint16_t` mask per
+pipeline pass, bit 0 = LED 1. `ui_switch_leds()` exists and returns 0.
+`REQUIRE_SWITCH_LEDS` is an exact match. `SWITCH_LED(n)` is a constant 1..10;
+0 and 11 do not compile. Bits at or above `SWITCH_LED_COUNT` fail the test.
+**The switch-LED matcher was proven to fail.** Each case was introduced
+alone, observed failing with `file:line`, then restored:
+- wrong LED: seed 2, require 1 —
+  `tests/test_switch_leds.cpp:10 FAIL: switch LEDs {2} (0000000010) != {1} (0000000001)`
+- superset (exact match): seed 1 and 6, require 1 —
+  `tests/test_switch_leds.cpp:14 FAIL: switch LEDs {1,6} (0000100001) != {1} (0000000001)`
+- subset: seed 1, require 1 and 6 —
+  `tests/test_switch_leds.cpp:10 FAIL: switch LEDs {1} (0000000001) != {1,6} (0000100001)`
+- non-empty against empty: seed 1, `REQUIRE_NO_SWITCH_LEDS()` —
+  `tests/test_switch_leds.cpp:10 FAIL: switch LEDs {1} (0000000001) != {} (0000000000)`
+- off-by-one: value seeded at index 20, asserted at index 19 —
+  `tests/test_switch_leds.cpp:29 FAIL: REQUIRE failed: harness_switch_trace().at(19) == SWITCH_LED(1)`
+- unused bits: seed bit 10 —
+  `tests/harness/harness.cpp:288 FAIL: switch LED mask has bits at or above SWITCH_LED_COUNT: 0x400`
+clang-format and clang-tidy clean on changed files (`-p build-host`).
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None. `ui_switch_leds()` is a stub 0 until T26. A press at the current
+timestamp appends a second sample for that `now` on both traces; the switch
+trace matches the lamp trace, which already did this.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.

@@ -406,7 +406,7 @@ Added after v1 was merged. Implements PRD §11.5. **Read §11.5 in full before s
   The table stays the single source of truth per §6.2 — the reverse direction is derived from `CUE_TABLE`, never a second hardcoded list. A test asserting that every entry in `CUE_TABLE` round-trips is the guard against that drifting.
 
 ### T25 — switch-led-harness
-- **Status:** not started
+- **Status:** complete
 - **Branch:** `task/T25-switch-led-harness`
 - **Commit:** `T25: extend the host harness with per-switch LED capture`
 - **Depends on:** T24
