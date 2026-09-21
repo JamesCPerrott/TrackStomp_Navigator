@@ -32,6 +32,9 @@ constexpr uint32_t CHANNEL_BLINK_GAP_MS = 400;
 constexpr uint32_t CHANNEL_BLINK_ON_MS  = 150;
 constexpr uint32_t CHANNEL_BLINK_OFF_MS = 150;
 
+// Per-switch LED array (§11.5). Bits 0–9 are LEDs 1–10.
+constexpr uint8_t SWITCH_LED_COUNT = 10;
+
 enum class CueTrigger : uint8_t { Tap, SelfPair, PrefixSuffix, Hold };
 
 struct Cue {

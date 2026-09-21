@@ -1,6 +1,6 @@
 # Test harness API
 
-Source of truth for host tests. Imitate [`tests/test_bounce.cpp`](../tests/test_bounce.cpp), [`tests/test_timing.cpp`](../tests/test_timing.cpp), and [`tests/test_capture.cpp`](../tests/test_capture.cpp). Do not invent a parallel scaffolding.
+Source of truth for host tests. Imitate [`tests/test_bounce.cpp`](../tests/test_bounce.cpp), [`tests/test_timing.cpp`](../tests/test_timing.cpp), [`tests/test_capture.cpp`](../tests/test_capture.cpp), and, for per-switch LEDs, [`tests/test_switch_leds.cpp`](../tests/test_switch_leds.cpp). Do not invent a parallel scaffolding.
 
 Host build:
 
@@ -27,7 +27,7 @@ harness_advance_to(HOLD_MS); // now == 2000, not 2001
 
 Buttons are logical **1–10**. Tests never mention GP numbers. The host `buttons_gpio_levels()` mask is active-low using `BUTTON_GPIO_BASE` for T04/T14.
 
-After each pipeline step the harness drains `buttons_poll_event`, `sequencer_poll_command`, and `sequencer_poll_ui_event` into capture buffers and appends `ui_lamp()` to the lamp trace and `ui_switch_leds()` to the switch trace (one sample each per processed timestamp).
+After each pipeline step the harness drains `buttons_poll_event`, `sequencer_poll_command`, and `sequencer_poll_ui_event` into capture buffers and appends `ui_lamp()` to the lamp trace and `ui_switch_leds()` to the switch trace (one sample each per pipeline pass). A press, release, or `set_pressed` at an already-sampled timestamp appends a second sample for that same `now`.
 
 ---
 
@@ -180,7 +180,7 @@ REQUIRE_LAMP(false);
 
 ### `const std::vector<uint8_t>& harness_lamp_trace()`
 
-0/1 per processed timestamp. Index `t` is the sample taken when `now == t` after a reset (until `harness_clear_captures()`). T10–T13 assert waveforms from this.
+0/1 per pipeline pass. Index equals `now` only until a press, release, or `set_pressed` runs at an already-sampled timestamp; `harness_clear_captures()` empties the trace. T10–T13 assert waveforms from this.
 
 ```cpp
 harness_advance(CUE_FLASH_MS);
@@ -206,11 +206,13 @@ A parallel surface to the panel lamp, captured the same way. **`harness_lamp_tra
 continue to assert against them exactly as written.
 
 State is a **10-bit mask**, bit 0 being LED 1 (above button 1) through bit 9 being LED 10. Tests
-name logical buttons, never GP numbers.
+name logical buttons, never GP numbers. A mask with any bit at or above `SWITCH_LED_COUNT` fails
+the test when a pipeline pass samples it, or when `harness_debug_set_switch_leds` is given one.
 
 ### `SWITCH_LED(n)`
 
-Mask for one LED, `n` being 1–10. Combine with `|`.
+Mask for one LED. `n` is a constant expression from 1 to 10; `SWITCH_LED(0)` and `SWITCH_LED(11)`
+do not compile. Combine with `|`.
 
 ```cpp
 REQUIRE_SWITCH_LEDS(SWITCH_LED(1) | SWITCH_LED(6));
@@ -218,7 +220,7 @@ REQUIRE_SWITCH_LEDS(SWITCH_LED(1) | SWITCH_LED(6));
 
 ### `uint16_t harness_switch_leds()`
 
-Current `ui_switch_leds()` value.
+Current mask. Each pipeline pass copies `ui_switch_leds()` into it.
 
 ```cpp
 REQUIRE(harness_switch_leds() == SWITCH_LED(3));
@@ -226,7 +228,7 @@ REQUIRE(harness_switch_leds() == SWITCH_LED(3));
 
 ### `REQUIRE_SWITCH_LEDS(mask)` / `REQUIRE_NO_SWITCH_LEDS()`
 
-Exact match on the current mask. `REQUIRE_NO_SWITCH_LEDS()` is the same as passing 0.
+Exact match on the current mask, the value `harness_switch_leds()` returns. `REQUIRE_NO_SWITCH_LEDS()` is the same as passing 0. On failure the message names both masks as LED numbers and as a 10-bit field with LED 1 at the right, then exits 1.
 
 These are **exact**, not subset, matches. PRD §11.5.3 permits only one indication at a time, so a
 test that passes while an unexpected LED is also lit would hide precisely the defect criterion 78
@@ -241,8 +243,12 @@ REQUIRE_SWITCH_LEDS(SWITCH_LED(1));   // pending flash, on phase
 
 ### `const std::vector<uint16_t>& harness_switch_trace()`
 
-One mask per processed timestamp. Index `t` is the sample taken when `now == t` after a reset
-(until `harness_clear_captures()`). Waveform assertions in T26–T27 read this.
+One mask per pipeline pass, appended in the same pass as the lamp sample, so the two traces stay
+the same length. Index equals `now` only until a press, release, or `set_pressed` runs at an
+already-sampled timestamp; that call appends a second sample while `now` stays put.
+`harness_clear_captures()` empties the trace. Waveform assertions in T26–T27 read this. The index
+in the example below is the timestamp only because the trace was filled by reset and `advance`,
+with no press at an already-sampled time.
 
 ```cpp
 harness_advance(LED_CONFIRM_MS);
@@ -274,17 +280,23 @@ REQUIRE_NO_SWITCH_LEDS();
 
 ## T03 only — do not copy
 
-The sequencer is still a stub, so the capture exemplar seeds buffers to prove the matcher. Later tasks emit through the pipeline; do not call these.
+These seed capture buffers so a matcher can be proven before the producer exists. Later tasks emit through the pipeline; do not call these. `harness_debug_set_switch_leds` exists because `ui_switch_leds()` returns 0 until the per-switch engine is implemented. It stores the current mask and, when the trace is non-empty, replaces the last sample. It does not append and does not move the clock. The next pipeline pass overwrites it from `ui_switch_leds()`.
 
 ```cpp
 void harness_debug_push_command(Command command);
 void harness_debug_push_ui_event(UiEvent event);
 void harness_debug_push_button_event(ButtonEvent event);
+void harness_debug_set_switch_leds(uint16_t mask);
 ```
 
 ```cpp
 harness_debug_push_command(Command{5});
 REQUIRE_COMMANDS(Command{5});
+```
+
+```cpp
+harness_debug_set_switch_leds(SWITCH_LED(1));
+REQUIRE_SWITCH_LEDS(SWITCH_LED(1));
 ```
 
 ---
@@ -325,10 +337,12 @@ struct UiEvent {
 
 ## Exemplar shapes
 
-Copy these three files, then replace the placeholder assertions.
+Imitate the exemplar for the shape you need.
 
 **Bounce** ([`tests/test_bounce.cpp`](../tests/test_bounce.cpp)): `inject_bounce` then `advance(DEBOUNCE_MS)`. T04 asserts one press event.
 
 **Timing** ([`tests/test_timing.cpp`](../tests/test_timing.cpp)): `press` then `advance_to` on each side of a threshold (`HOLD_MS - 1` vs `HOLD_MS`). T05 asserts the hold command.
 
 **Capture** ([`tests/test_capture.cpp`](../tests/test_capture.cpp)): ordered list and empty assertions on Command / UiEvent / ButtonEvent. T08 fills them from real sequencer output.
+
+**Switch LEDs** ([`tests/test_switch_leds.cpp`](../tests/test_switch_leds.cpp)): exact mask match and one sample per pipeline pass. T26 and T27 imitate this shape. Do not copy `harness_debug_set_switch_leds`.

@@ -187,6 +187,10 @@ void ui_indicate_channel(uint8_t n) {
     start_blink(n, g_last_now);
 }
 
+uint16_t ui_switch_leds() {
+    return uint16_t{0};
+}
+
 void ui_led_init() {
 #ifndef HOST_TEST
     gpio_init(LED_PANEL_GPIO);

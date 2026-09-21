@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <initializer_list>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -24,6 +25,8 @@ std::vector<Command> g_commands;
 std::vector<UiEvent> g_ui_events;
 std::vector<ButtonEvent> g_button_events;
 std::vector<uint8_t> g_lamp_trace;
+std::vector<uint16_t> g_switch_trace;
+uint16_t g_switch_leds = 0;
 
 bool valid_button(uint8_t button) {
     return button >= 1U && button <= BUTTON_COUNT;
@@ -56,6 +59,41 @@ void drain_captures() {
     }
 }
 
+std::string format_switch_mask(uint16_t mask) {
+    std::ostringstream out;
+    out << '{';
+    bool first = true;
+    for (uint8_t led = 1; led <= SWITCH_LED_COUNT; ++led) {
+        const uint16_t bit = static_cast<uint16_t>(uint16_t{1} << (led - 1U));
+        if ((mask & bit) != 0U) {
+            if (!first) {
+                out << ',';
+            }
+            first = false;
+            out << static_cast<unsigned>(led);
+        }
+    }
+    out << "} (";
+    for (uint8_t i = 0; i < SWITCH_LED_COUNT; ++i) {
+        const uint8_t bit   = static_cast<uint8_t>(SWITCH_LED_COUNT - 1U - i);
+        const uint16_t flag = static_cast<uint16_t>(uint16_t{1} << bit);
+        out << (((mask & flag) != 0U) ? '1' : '0');
+    }
+    out << ')';
+    return out.str();
+}
+
+void reject_unused_switch_bits(const char* file, int line, uint16_t mask) {
+    const uint16_t used = static_cast<uint16_t>((uint16_t{1} << SWITCH_LED_COUNT) - 1U);
+    if ((mask & static_cast<uint16_t>(~used)) != 0U) {
+        std::ostringstream out;
+        out << "switch LED mask has bits at or above SWITCH_LED_COUNT: 0x" << std::hex
+            << static_cast<unsigned>(mask);
+        const std::string message = out.str();
+        harness_fail(file, line, message.c_str());
+    }
+}
+
 void pipeline() {
     buttons_scan(g_now_ms);
     sequencer_tick(g_now_ms);
@@ -63,6 +101,10 @@ void pipeline() {
     ui_tick(g_now_ms);
     drain_captures();
     g_lamp_trace.push_back(ui_lamp() ? uint8_t{1} : uint8_t{0});
+    const uint16_t switch_mask = ui_switch_leds();
+    reject_unused_switch_bits(__FILE__, __LINE__, switch_mask);
+    g_switch_leds = switch_mask;
+    g_switch_trace.push_back(switch_mask);
 }
 
 void set_level_no_scan(uint8_t button, bool pressed) {
@@ -203,11 +245,31 @@ const std::vector<uint8_t>& harness_lamp_trace() {
     return g_lamp_trace;
 }
 
+const std::vector<uint16_t>& harness_switch_trace() {
+    return g_switch_trace;
+}
+
+uint16_t harness_switch_leds() {
+    return g_switch_leds;
+}
+
+uint8_t harness_switch_led_count() {
+    uint8_t count = 0;
+    for (uint8_t bit = 0; bit < SWITCH_LED_COUNT; ++bit) {
+        const uint16_t flag = static_cast<uint16_t>(uint16_t{1} << bit);
+        if ((g_switch_leds & flag) != 0U) {
+            count = static_cast<uint8_t>(count + 1U);
+        }
+    }
+    return count;
+}
+
 void harness_clear_captures() {
     g_commands.clear();
     g_ui_events.clear();
     g_button_events.clear();
     g_lamp_trace.clear();
+    g_switch_trace.clear();
 }
 
 void harness_debug_push_command(Command command) {
@@ -220,6 +282,14 @@ void harness_debug_push_ui_event(UiEvent event) {
 
 void harness_debug_push_button_event(ButtonEvent event) {
     g_button_events.push_back(event);
+}
+
+void harness_debug_set_switch_leds(uint16_t mask) {
+    reject_unused_switch_bits(__FILE__, __LINE__, mask);
+    g_switch_leds = mask;
+    if (!g_switch_trace.empty()) {
+        g_switch_trace.back() = mask;
+    }
 }
 
 [[noreturn]] void harness_fail(const char* file, int line, const char* message) {
@@ -306,5 +376,15 @@ void harness_require_lamp(const char* file, int line, bool expected) {
         std::cerr << file << ':' << line << " FAIL: lamp " << (actual ? "on" : "off")
                   << " != " << (expected ? "on" : "off") << '\n';
         std::exit(1);
+    }
+}
+
+void harness_require_switch_leds(const char* file, int line, uint16_t expected) {
+    if (g_switch_leds != expected) {
+        std::ostringstream out;
+        out << "switch LEDs " << format_switch_mask(g_switch_leds)
+            << " != " << format_switch_mask(expected);
+        const std::string message = out.str();
+        harness_fail(file, line, message.c_str());
     }
 }
