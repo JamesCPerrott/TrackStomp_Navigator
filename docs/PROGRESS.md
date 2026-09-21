@@ -704,3 +704,41 @@ Questions for this phase start at **Q026**. Q021–Q025 are the assumptions reco
 specified; they are decisions already made, not open items.
 
 ---
+
+## T24 — cue-table-reverse-lookup — 2026-09-21
+
+**Status:** complete
+**Branch:** task/T24-cue-table-reverse-lookup
+**Commit:** (this commit)
+**Criteria covered:** —
+**Tests:** 1 added (cue_origin_lookup), 19 total, all green. pico2 `.uf2`
+produced. T10–T13 still pass (`led_pattern_engine`,
+`led_performance_patterns`, `led_chord_progress`, `led_channel_blink`), so
+criteria **41–56 still pass**.
+
+**Done:**
+`cue_origin_for_note` in `config.h` returns `CueOrigin`: a cue class plus the
+buttons stored on the matching `CUE_TABLE` entry. The reverse direction is
+**derived from `CUE_TABLE` rather than a second list** — a scan of that
+array, with class taken from the entry's shape (hold trigger, else one
+button is standalone, else equal buttons are a self-pair, else a pair). An
+unmapped note returns `CueClass::Invalid` with both buttons `0xFF`. **Every
+entry round-trips**, via `static_assert(cue_table_origins_round_trip())` and
+a host loop over the real table. The round-trip test **was proven to fail**:
+expecting `button_b + 1` reported
+`tests/test_cue_origin.cpp:50 FAIL: REQUIRE failed: origin.button_b == static_cast<uint8_t>(cue.button_b + 1U)`,
+then the assertion was restored.
+
+**Tried and abandoned:**
+Early `return false` in `cue_table_origins_round_trip`. clang-tidy
+`readability-use-anyofallof` wants `std::all_of`, which is not `constexpr`
+in C++17 — the same limit T02 hit. The predicate accumulates a `bool`
+instead.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
