@@ -10,7 +10,9 @@ The loop reads the most recent entry on each wake to find where it left off. **H
 
 **`LOOP-STATUS` is scoped to the phase named on the line, not to the project.** v1 (T01–T21) reached `COMPLETE` on 2026-09-11; that fact now lives in the T21 entry and the Phase 9 divider below, not in the status line. A new phase resets the line. Without this, the first thing a Phase 9 loop reads is a `COMPLETE` it did not earn.
 
-**Record real commit SHAs from here on.** Every v1 entry reads `(this commit)`, which is self-consistent but leaves no way to identify the firmware a validation run actually tested. T22 and T29 both require a firmware commit in `VALIDATION.md`; get it from `git log` rather than back-filling it from this file.
+**`Commit: (this commit)` is correct for task entries — keep using it.** Each entry lands in the same commit as the code it describes, and a commit cannot contain its own hash; amending to add one changes the hash. `git log -- docs/PROGRESS.md` recovers the real SHA for any entry.
+
+Validation is the exception. `VALIDATION.md` references a *different* commit — the firmware under test — so it records a tag and an artifact hash rather than `(this commit)`. v1 is tagged `v1.0`.
 
 ---
 
