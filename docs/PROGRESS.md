@@ -823,3 +823,42 @@ stays through release debounce rather than the raw pin edge.
 
 **Defects noted in earlier tasks (not fixed):**
 None.
+
+## T27 — switch-led-setup-chord — 2026-09-21
+
+**Status:** complete
+**Branch:** task/T27-switch-led-setup-chord
+**Commit:** (this commit)
+**Criteria covered:** 71, 72, 73, 74, 75, 76, 77
+**Tests:** 1 added (switch_led_setup_chord), 22 total, all green. pico2 `.uf2`
+produced. T10–T13 still pass (`led_pattern_engine`,
+`led_performance_patterns`, `led_chord_progress`, `led_channel_blink`), so
+criteria **41–56 still pass**. Criterion 82's host bound is the existing
+`ui_tick` timing check in `led_pattern_engine`, which now runs both engines.
+
+**Done:**
+Chord progress is priority 2 and is read from `buttons_chord_armed()` /
+`buttons_chord_start()`, the same accessors as the panel engine. The first
+500 ms is full darkness, including over a live pending flash or a
+confirmation; then LEDs 6 and 9 flash together at 125/125. Abort releases
+the override on that tick and the indication underneath is wherever its own
+clock says it is — an off-phase pending flash stays off rather than
+restarting. Re-forming the chord restarts the blackout from the new press.
+At 5000 ms, setup entry replaces the flash with the stored channel blinking
+1000/1000 from the on phase, including while 6 and 9 are still held. A
+channel tap restarts that on phase on the same tick. Exit by chord or by
+the 30 s timeout clears all ten, with no exit pattern. Boot, started from
+`ui_indicate_channel` beside the panel blink, holds the stored channel solid
+for 2000 ms and is cancelled by an accepted button event. It is not started
+on harness reset.
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
