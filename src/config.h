@@ -77,7 +77,55 @@ constexpr bool cue_table_notes_are_unique_and_complete() {
     return mask == expected;
 }
 
+enum class CueClass : uint8_t { Invalid, Pair, SelfPair, Standalone, Hold };
+
+struct CueOrigin {
+    CueClass kind;
+    uint8_t button_a; // prefix, or the sole button; 0xFF when kind is Invalid
+    uint8_t button_b; // suffix; equals button_a for a self-pair; 0 when unused
+};
+
+constexpr CueClass cue_class_from_entry(const Cue& cue) {
+    if (cue.trigger == CueTrigger::Hold) {
+        return CueClass::Hold;
+    }
+    if (cue.button_b == 0U) {
+        return CueClass::Standalone;
+    }
+    if (cue.button_a == cue.button_b) {
+        return CueClass::SelfPair;
+    }
+    return CueClass::Pair;
+}
+
+constexpr CueOrigin cue_origin_for_note(uint8_t note) {
+    for (const Cue& cue : CUE_TABLE) {
+        if (cue.note == note) {
+            return CueOrigin{cue_class_from_entry(cue), cue.button_a, cue.button_b};
+        }
+    }
+    return CueOrigin{CueClass::Invalid, uint8_t{0xFF}, uint8_t{0xFF}};
+}
+
+constexpr bool cue_table_origins_round_trip() {
+    bool matches = true;
+    for (const Cue& cue : CUE_TABLE) {
+        const CueOrigin origin = cue_origin_for_note(cue.note);
+        if (origin.kind != cue_class_from_entry(cue)) {
+            matches = false;
+        }
+        if (origin.button_a != cue.button_a) {
+            matches = false;
+        }
+        if (origin.button_b != cue.button_b) {
+            matches = false;
+        }
+    }
+    return matches;
+}
+
 static_assert(std::size(CUE_TABLE) == 33);
 static_assert(cue_table_notes_are_unique_and_complete());
+static_assert(cue_table_origins_round_trip());
 
 #endif

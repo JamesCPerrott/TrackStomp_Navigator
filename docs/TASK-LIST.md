@@ -392,7 +392,7 @@ Added after v1 was merged. Implements PRD §11.5. **Read §11.5 in full before s
 **Branching.** T24 branches from `master` — v1 is merged, so the v1 stack is history. T25 onward stack normally, each from its predecessor's branch.
 
 ### T24 — cue-table-reverse-lookup
-- **Status:** not started
+- **Status:** complete
 - **Branch:** `task/T24-cue-table-reverse-lookup`
 - **Commit:** `T24: add reverse lookup from cue note to originating buttons`
 - **Depends on:** — (branch from `master`)
