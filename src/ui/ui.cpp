@@ -167,6 +167,12 @@ uint8_t g_sw_pending_id      = 0;
 uint32_t g_sw_confirm_start  = 0;
 uint32_t g_sw_pending_start  = 0;
 uint32_t g_sw_seen_event_seq = 0;
+bool g_sw_setup              = false;
+bool g_sw_boot               = false;
+uint8_t g_sw_setup_channel   = 0;
+uint8_t g_sw_boot_channel    = 0;
+uint32_t g_sw_setup_start    = 0;
+uint32_t g_sw_boot_start     = 0;
 
 void reset_switch() {
     g_switch_mask       = 0;
@@ -179,6 +185,12 @@ void reset_switch() {
     g_sw_confirm_start  = 0;
     g_sw_pending_start  = 0;
     g_sw_seen_event_seq = buttons_accepted_event_seq();
+    g_sw_setup          = false;
+    g_sw_boot           = false;
+    g_sw_setup_channel  = 0;
+    g_sw_boot_channel   = 0;
+    g_sw_setup_start    = 0;
+    g_sw_boot_start     = 0;
 }
 
 uint16_t switch_led_bit(uint8_t id) {
@@ -199,10 +211,16 @@ void cancel_switch_on_accepted_event() {
     if (buttons_accepted_event_seq() == g_sw_seen_event_seq) {
         return;
     }
-    if (g_sw_confirm == SwitchConfirm::None) {
-        return;
+    if (g_sw_confirm != SwitchConfirm::None) {
+        clear_switch_confirmation();
     }
-    clear_switch_confirmation();
+    g_sw_boot = false;
+}
+
+void start_switch_boot(uint8_t channel, uint32_t now) {
+    g_sw_boot         = true;
+    g_sw_boot_channel = channel;
+    g_sw_boot_start   = now;
 }
 
 void start_switch_confirmation(SwitchConfirm kind, uint8_t button_a, uint8_t button_b,
@@ -243,10 +261,21 @@ void apply_switch_event(const UiEvent& event, uint32_t now) {
         start_switch_confirmation(SwitchConfirm::Hold, event.value, 0U, now);
         break;
     case UiEventKind::SetupEnter:
-        g_sw_pending = false;
+        g_sw_pending       = false;
+        g_sw_setup         = true;
+        g_sw_setup_channel = event.value;
+        g_sw_setup_start   = now;
         break;
     case UiEventKind::SetupChannel:
+        g_sw_setup         = true;
+        g_sw_setup_channel = event.value;
+        g_sw_setup_start   = now;
+        break;
     case UiEventKind::SetupExit:
+        g_sw_setup   = false;
+        g_sw_pending = false;
+        g_sw_boot    = false;
+        clear_switch_confirmation();
         break;
     }
 }
@@ -291,13 +320,45 @@ uint16_t switch_confirmation_mask(uint32_t now) {
     return 0U;
 }
 
+void expire_switch_boot(uint32_t now) {
+    if (g_sw_boot && (now - g_sw_boot_start) >= LED_BOOT_CHANNEL_MS) {
+        g_sw_boot = false;
+    }
+}
+
+uint16_t chord_progress_mask(uint32_t now) {
+    const uint32_t start   = buttons_chord_start();
+    const uint32_t elapsed = now - start;
+    if (elapsed < CHORD_LED_DELAY_MS) {
+        return 0U;
+    }
+    if (flash_on(now, start + CHORD_LED_DELAY_MS, CHORD_LED_FLASH_MS)) {
+        return static_cast<uint16_t>(switch_led_bit(CHORD_BUTTON_A) |
+                                     switch_led_bit(CHORD_BUTTON_B));
+    }
+    return 0U;
+}
+
 uint16_t resolve_switch(uint32_t now) {
     expire_switch_confirmation(now);
+    expire_switch_boot(now);
+    if (g_sw_setup) {
+        if (flash_on(now, g_sw_setup_start, LED_SETUP_BLINK_MS)) {
+            return switch_led_bit(g_sw_setup_channel);
+        }
+        return 0U;
+    }
+    if (buttons_chord_armed()) {
+        return chord_progress_mask(now);
+    }
     if (g_sw_confirm != SwitchConfirm::None) {
         return switch_confirmation_mask(now);
     }
     if (g_sw_pending && flash_on(now, g_sw_pending_start, LED_PENDING_FLASH_MS)) {
         return switch_led_bit(g_sw_pending_id);
+    }
+    if (g_sw_boot) {
+        return switch_led_bit(g_sw_boot_channel);
     }
     return 0U;
 }
@@ -338,6 +399,7 @@ bool ui_lamp() {
 
 void ui_indicate_channel(uint8_t n) {
     start_blink(n, g_last_now);
+    start_switch_boot(n, g_last_now);
 }
 
 uint16_t ui_switch_leds() {

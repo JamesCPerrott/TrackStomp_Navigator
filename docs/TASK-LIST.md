@@ -434,7 +434,7 @@ Added after v1 was merged. Implements PRD §11.5. **Read §11.5 in full before s
   No `sleep_ms`, no blocking, no allocation. Advanced only by its tick function.
 
 ### T27 — switch-led-setup-chord
-- **Status:** not started
+- **Status:** complete
 - **Branch:** `task/T27-switch-led-setup-chord`
 - **Commit:** `T27: add setup channel, chord progress, and boot indication to the switch LEDs`
 - **Depends on:** T26

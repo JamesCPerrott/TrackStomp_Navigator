@@ -41,6 +41,8 @@ constexpr uint32_t LED_CONFIRM_MS       = 5000;
 constexpr uint32_t LED_SELF_PAIR_ON_MS  = 2000;
 constexpr uint32_t LED_SELF_PAIR_OFF_MS = 1000;
 constexpr uint32_t LED_STANDALONE_MS    = 1000; // on and off; five phases
+constexpr uint32_t LED_SETUP_BLINK_MS   = 1000; // on and off; 2000 ms period
+constexpr uint32_t LED_BOOT_CHANNEL_MS  = 2000;
 
 static_assert((LED_SELF_PAIR_ON_MS + LED_SELF_PAIR_OFF_MS + LED_SELF_PAIR_ON_MS) == LED_CONFIRM_MS);
 static_assert((LED_STANDALONE_MS * 5U) == LED_CONFIRM_MS);
