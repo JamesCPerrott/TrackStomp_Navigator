@@ -450,7 +450,7 @@ Added after v1 was merged. Implements PRD §11.5. **Read §11.5 in full before s
   Chord timing may be read via the same `buttons_chord_start()` accessor the §11.4 engine already uses. That is an existing pattern (QUESTIONS Q009), not a new one — do not add a second mechanism.
 
 ### T28 — switch-led-driver
-- **Status:** not started
+- **Status:** complete
 - **Branch:** `task/T28-switch-led-driver`
 - **Commit:** `T28: drive the ten per-switch status LEDs from the indication engine`
 - **Depends on:** T27
