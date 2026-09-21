@@ -36,6 +36,7 @@ std::size_t g_seq_head    = 0;
 std::size_t g_seq_count   = 0;
 uint32_t g_last_now       = 0;
 uint32_t g_chord_start    = 0;
+uint32_t g_accepted_seq   = 0;
 LockKind g_lock           = LockKind::None;
 uint8_t g_lock_id         = 0;
 bool g_initialized        = false;
@@ -93,6 +94,7 @@ void queue_clear() {
 }
 
 void queue_push(uint8_t id, ButtonEventKind kind) {
+    g_accepted_seq += 1U;
     if (g_queue_count < kEventQueueSize) {
         const std::size_t index = (g_queue_head + g_queue_count) % kEventQueueSize;
         g_queue[index]          = ButtonEvent{id, kind};
@@ -302,6 +304,10 @@ bool buttons_accepted_pressed(uint8_t id) {
 
 bool buttons_chord_armed() {
     return g_chord_armed;
+}
+
+uint32_t buttons_accepted_event_seq() {
+    return g_accepted_seq;
 }
 
 uint32_t buttons_chord_start() {
