@@ -390,6 +390,7 @@ void ui_tick(uint32_t now) {
 #ifndef HOST_TEST
     gpio_put(LED_PANEL_GPIO, g_lamp);
     gpio_put(LED_ONBOARD_GPIO, g_lamp);
+    gpio_put_masked(switch_led_pin_mask(), switch_led_gpio_value(g_switch_mask));
 #endif
 }
 
@@ -416,5 +417,13 @@ void ui_led_init() {
     gpio_init(LED_ONBOARD_GPIO);
     gpio_set_dir(LED_ONBOARD_GPIO, GPIO_OUT);
     gpio_put(LED_ONBOARD_GPIO, false);
+
+    for (uint8_t index = 0; index < SWITCH_LED_COUNT; ++index) {
+        const uint pin = SWITCH_LED_GPIO[index];
+        gpio_init(pin);
+        gpio_set_dir(pin, GPIO_OUT);
+        gpio_set_drive_strength(pin, GPIO_DRIVE_STRENGTH_4MA);
+    }
+    gpio_put_masked(switch_led_pin_mask(), 0U);
 #endif
 }

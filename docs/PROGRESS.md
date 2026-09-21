@@ -1,4 +1,4 @@
-LOOP-STATUS: RUNNING — Phase 9
+LOOP-STATUS: HALTED — T26–T28 complete; T29 is hardware
 
 # Progress log
 
@@ -857,6 +857,43 @@ None.
 
 **Contradicts PRD:**
 None.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
+## T28 — switch-led-driver — 2026-09-21
+
+**Status:** complete
+**Branch:** task/T28-switch-led-driver
+**Commit:** (this commit)
+**Criteria covered:** —
+**Tests:** none added, 22 total, all green. pico2 `.uf2` produced. T10–T13
+still pass (`led_pattern_engine`, `led_performance_patterns`,
+`led_chord_progress`, `led_channel_blink`), so criteria **41–56 still pass**.
+Criteria 61–80 are the T26 and T27 host tests. 81 is those panel tests.
+82 is the existing `ui_tick` bound in `led_pattern_engine`.
+
+**Done:**
+`ui_tick` drives all ten switch LEDs with one `gpio_put_masked(mask, value)`.
+The mask and the value are built from `SWITCH_LED_GPIO`, so the gap between
+GP2 and GP22 is explicit. High means lit. Each pin is initialized to 4 mA,
+matching the panel LED. `SWITCH_LED_DUTY` is the PRD table, all 255, and
+`switch_led_duty_is_full_scale()` rejects any other value. This layer does
+not PWM and does not encode state in brightness; the GPIO level is the
+engine bit. Compile-time checks map LED 1 to GP5, LED 5 to GP22, LED 10 to
+GP17, and LEDs 6 and 9 to GP21 and GP18.
+
+**Tried and abandoned:**
+Context7 has no page for `gpio_put_masked`. The call matches Pico SDK 2.3.1
+`hardware/gpio.h`: `gpio_put_masked(uint32_t mask, uint32_t value)` drives
+each set mask bit from the same bit of `value`.
+
+**Contradicts PRD:**
+None. A non-255 duty cannot dim here; PWM would be a new peripheral, and
+the static assert makes that edit fail the build instead of compiling as a
+silent full-on.
 
 **Questions raised:** None.
 

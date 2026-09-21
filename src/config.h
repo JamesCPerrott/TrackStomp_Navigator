@@ -32,8 +32,59 @@ constexpr uint32_t CHANNEL_BLINK_GAP_MS = 400;
 constexpr uint32_t CHANNEL_BLINK_ON_MS  = 150;
 constexpr uint32_t CHANNEL_BLINK_OFF_MS = 150;
 
-// Per-switch LED array (§11.5). Bits 0–9 are LEDs 1–10.
+// Per-switch LED array (§11.5). Bits 0–9 are LEDs 1–10. Index 0 is button 1.
 constexpr uint8_t SWITCH_LED_COUNT = 10;
+
+// Not a contiguous range. Do not derive pin n as SWITCH_LED_GPIO[0] - n.
+constexpr uint8_t SWITCH_LED_GPIO[SWITCH_LED_COUNT] = {5, 4, 3, 2, 22, 21, 20, 19, 18, 17};
+
+// Brightness trim only (§11.5.2). Uniform full scale; the driver does not PWM.
+constexpr uint8_t SWITCH_LED_DUTY[SWITCH_LED_COUNT] = {255, 255, 255, 255, 255,
+                                                       255, 255, 255, 255, 255};
+
+constexpr uint32_t switch_led_pin_mask() {
+    uint32_t mask = 0;
+    for (uint8_t pin : SWITCH_LED_GPIO) {
+        mask |= uint32_t{1} << pin;
+    }
+    return mask;
+}
+
+constexpr uint32_t switch_led_gpio_value(uint16_t leds) {
+    uint32_t value = 0;
+    for (uint8_t index = 0; index < SWITCH_LED_COUNT; ++index) {
+        const uint16_t bit = static_cast<uint16_t>(uint16_t{1} << index);
+        if ((leds & bit) != 0U) {
+            value |= uint32_t{1} << SWITCH_LED_GPIO[index];
+        }
+    }
+    return value;
+}
+
+constexpr bool switch_led_duty_is_full_scale() {
+    bool full = true;
+    for (uint8_t duty : SWITCH_LED_DUTY) {
+        if (duty != 255U) {
+            full = false;
+        }
+    }
+    return full;
+}
+
+static_assert(SWITCH_LED_GPIO[4] != static_cast<uint8_t>(SWITCH_LED_GPIO[0] - 4U));
+static_assert(switch_led_pin_mask() ==
+              ((uint32_t{1} << 5U) | (uint32_t{1} << 4U) | (uint32_t{1} << 3U) |
+               (uint32_t{1} << 2U) | (uint32_t{1} << 22U) | (uint32_t{1} << 21U) |
+               (uint32_t{1} << 20U) | (uint32_t{1} << 19U) | (uint32_t{1} << 18U) |
+               (uint32_t{1} << 17U)));
+static_assert(switch_led_gpio_value(uint16_t{1} << 0U) == (uint32_t{1} << 5U));
+static_assert(switch_led_gpio_value(uint16_t{1} << 4U) == (uint32_t{1} << 22U));
+static_assert(switch_led_gpio_value(uint16_t{1} << 9U) == (uint32_t{1} << 17U));
+static_assert(switch_led_gpio_value(static_cast<uint16_t>((uint16_t{1} << 5U) |
+                                                          (uint16_t{1} << 8U))) ==
+              ((uint32_t{1} << 21U) | (uint32_t{1} << 18U)));
+static_assert(switch_led_gpio_value(0U) == 0U);
+static_assert(switch_led_duty_is_full_scale());
 
 // Per-switch indication timing (§11.5.4).
 constexpr uint32_t LED_PENDING_FLASH_MS = 125; // on and off; 250 ms period
