@@ -1,4 +1,4 @@
-LOOP-STATUS: NOT STARTED — Phase 9
+LOOP-STATUS: RUNNING — Phase 9
 
 # Progress log
 
@@ -784,6 +784,42 @@ timestamp appends a second sample for that `now` on both traces; the switch
 trace matches the lamp trace, which already did this.
 
 **Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
+## T26 — switch-led-engine — 2026-09-21
+
+**Status:** complete
+**Branch:** task/T26-switch-led-engine
+**Commit:** (this commit)
+**Criteria covered:** 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 78, 79, 80
+**Tests:** 1 added (switch_led_engine), 21 total, all green. pico2 `.uf2`
+produced. T10–T13 still pass (`led_pattern_engine`,
+`led_performance_patterns`, `led_chord_progress`, `led_channel_blink`), so
+criteria **41–56 still pass**.
+
+**Done:**
+One indication owns the mask. Pending flashes at 125/125 on the prefix LED.
+A pair is both buttons solid for `LED_CONFIRM_MS`; a self-pair is one LED
+with the 2000/1000/2000 notch; a standalone is five 1000 ms phases ending
+lit. A hold is solid from the fire, for at least `LED_CONFIRM_MS`, and stays
+lit while `buttons_accepted_pressed` is true. An accepted `ButtonEvent`
+destroys a running confirmation before that tick's `UiEvent` is applied, so
+a new pending or cue replaces it and an orphan suffix leaves the surface
+dark. A press discarded by lockout never reaches `queue_push` and cancels
+nothing. Cue buttons come from `cue_origin_for_note`. Chord, setup blink,
+and boot are not drawn in this task.
+
+**Tried and abandoned:**
+None. A per-LED state machine was not attempted; the resolver picks a single
+confirmation or the pending flash and clears every other bit.
+
+**Contradicts PRD:**
+None. The hold floor follows the debounced accepted press (Q026), so the LED
+stays through release debounce rather than the raw pin edge.
+
+**Questions raised:** Q026
 
 **Defects noted in earlier tasks (not fixed):**
 None.

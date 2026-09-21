@@ -418,7 +418,7 @@ Added after v1 was merged. Implements PRD §11.5. **Read §11.5 in full before s
   **This is the bootstrap task of the phase and it carries T03's risk: a harness whose assertions cannot fail will report green for every task after it.** Before this task is complete, prove the matcher fails — write a test that asserts the wrong mask, confirm it fails with `file:line`, then correct it. `harness_lamp_trace()` is unchanged and T10–T13 still pass.
 
 ### T26 — switch-led-engine
-- **Status:** not started
+- **Status:** complete
 - **Branch:** `task/T26-switch-led-engine`
 - **Commit:** `T26: implement the per-switch indication engine with pending and confirmation states`
 - **Depends on:** T25

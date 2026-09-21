@@ -35,6 +35,16 @@ constexpr uint32_t CHANNEL_BLINK_OFF_MS = 150;
 // Per-switch LED array (§11.5). Bits 0–9 are LEDs 1–10.
 constexpr uint8_t SWITCH_LED_COUNT = 10;
 
+// Per-switch indication timing (§11.5.4).
+constexpr uint32_t LED_PENDING_FLASH_MS = 125; // on and off; 250 ms period
+constexpr uint32_t LED_CONFIRM_MS       = 5000;
+constexpr uint32_t LED_SELF_PAIR_ON_MS  = 2000;
+constexpr uint32_t LED_SELF_PAIR_OFF_MS = 1000;
+constexpr uint32_t LED_STANDALONE_MS    = 1000; // on and off; five phases
+
+static_assert((LED_SELF_PAIR_ON_MS + LED_SELF_PAIR_OFF_MS + LED_SELF_PAIR_ON_MS) == LED_CONFIRM_MS);
+static_assert((LED_STANDALONE_MS * 5U) == LED_CONFIRM_MS);
+
 enum class CueTrigger : uint8_t { Tap, SelfPair, PrefixSuffix, Hold };
 
 struct Cue {

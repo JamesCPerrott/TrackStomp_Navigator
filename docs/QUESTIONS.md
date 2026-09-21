@@ -692,6 +692,38 @@ Boot indication is additive and costs one constant.
 
 ---
 
+## Q026 — [ASSUMED] — Phase 9 / T26
+
+**Task:** T26 switch-led-engine
+**Raised:** 2026-09-21
+**Type:** ASSUMPTION — how `ui` observes an accepted press without a new event kind
+
+**Assumed:**
+An accepted `ButtonEvent` is visible to the switch engine as an advance of
+`buttons_accepted_event_seq()`, incremented inside the existing `queue_push`.
+Lockout-discarded presses never reach `queue_push`, so they do not cancel.
+`ui` does not call `buttons_poll_event` or `buttons_poll_sequencer_event`.
+
+The hold floor is sensed with `buttons_accepted_pressed`, the same accessor
+the panel lockout flash uses (Q008). The LED therefore stays lit through the
+release debounce, which is still "down" as far as input classification is
+concerned.
+
+**Reasoning:**
+PRD §11.5.3 cancels a confirmation on any accepted `ButtonEvent`, including an
+orphan suffix that produces no `UiEvent`. Polling either existing queue from
+`ui` would steal events from the harness or the sequencer. A new `UiEventKind`
+is forbidden. The counter is the dual-consumer idea already used for those two
+queues, without handing `ui` a button id — cue LEDs still come from
+`cue_origin_for_note`. Debounced press state keeps `ui` off GPIO.
+
+**Cost to reverse:** low — peek a third event copy, or drive cancel from a
+different accessor.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._

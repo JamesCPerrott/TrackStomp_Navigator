@@ -17,6 +17,7 @@ void buttons_set_setup_active(bool active);
 bool buttons_accepted_pressed(uint8_t id);
 bool buttons_chord_armed();
 uint32_t buttons_chord_start();
+uint32_t buttons_accepted_event_seq();
 void buttons_init();
 uint32_t buttons_gpio_levels();
 
