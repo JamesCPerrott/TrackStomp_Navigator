@@ -601,29 +601,44 @@ The LED pins are deliberately **not** contiguous — they run GP5 down to GP2, t
 
 #### 11.5.2 Electrical
 
-Topology is identical to §11.2 — a low-side NPN per LED from VBUS, non-inverting, GPIO high means lit. The LED is not driven from the 3.3 V rail, and the transistor is not optional: the ESD-diode argument in §11.2 applies unchanged to all ten pins.
+Topology is identical to §11.2 — a low-side NPN per LED, non-inverting, GPIO high means lit. The LED is not driven from the 3.3 V rail, and the transistor is not optional: the ESD-diode argument in §11.2 applies unchanged to all ten pins.
+
+**The anodes are fed from VSYS (pin 39), not VBUS.** VBUS is dead whenever the unit runs from the 9 V input alone, so LEDs on VBUS would simply not light. VSYS is fed by whichever source is higher and therefore works on either, and the two paths land within a few tens of millivolts of each other (see the budget below), so brightness does not change with the power source.
 
 ```
-VBUS (5V) ──▶|── LED (blue) ──[ 100Ω ]── C
-                                          │
-                                     NPN (2N3904)
-                                          │
-LED_GPIO ──[ 2.2kΩ ]── B                  E ── GND
+VSYS (pin 39) ──▶|── LED (blue) ──[ 220Ω ]── C
+                                              │
+                                         NPN (2N3904)
+                                              │
+LED_GPIO ──[ 2.2kΩ ]── B                      E ── GND
 ```
 
 | Part | Value |
 |---|---|
-| LED | Blue 5 mm, Vf 3.6 V at 30 mA rated (Dialight) |
-| LED series resistor | 100 Ω (collector leg) |
+| LED | Blue 5 mm panel-mount, 14" pigtails (Dialight) |
+| LED series resistor | 220 Ω (collector leg) |
 | Transistor | 2N3904 (TO-92) ×10 |
 | Base resistor | 2.2 kΩ ×10 |
 | Pad drive strength | 4 mA on all ten pins |
 
-**Current budget.** At worst case VBUS of 4.75 V: 4.75 − 3.6 (LED) − 0.2 (V_CE saturated) leaves 0.95 V across 100 Ω, so ≈ 9.5 mA, rising to ≈ 12 mA at a nominal 5 V. §11.5.3 guarantees **at most two LEDs are ever lit simultaneously**, so the whole array draws under 25 mA. This is why no external supply, no output-enable line, and no enumeration-time blanking are required.
+**Current budget — measured on cape v1, not calculated.**
 
-**Headroom and trim.** 0.95 V is low headroom, so LED current is sensitive to forward-voltage spread between parts — a 3.4 V and a 3.8 V LED sharing the same resistor can differ by nearly a factor of two in current. Buy all ten from one reel. If brightness still reads uneven through the finished panel, compensate with the per-LED PWM duty constants (§13) rather than by changing resistors. Those constants are a **brightness-matching mechanism only** — duty is never used to signal anything, and every pattern in this section is plain on or off.
+| | 100 Ω (first attempt) | 220 Ω (specified) |
+|---|---|---|
+| VSYS | 4.63 V | 4.63 V |
+| Drop across the resistor | 1.55 V | 1.77 V |
+| LED current | 15.5 mA | 8.0 mA |
+| Implied LED Vf | ≈ 2.95 V | ≈ 2.78 V |
 
-Check the maximum forward voltage on the datasheet, not the typical, before committing the resistor value. Raise the series resistor if the finished panel reads bright on a dark stage; §11.2's reasoning about over-driven indicators applies with ten times the force.
+§11.5.3 guarantees **at most two LEDs are ever lit simultaneously**, so the whole array draws under 16 mA. This is why no external supply, no output-enable line, and no enumeration-time blanking are required.
+
+100 Ω was built first and read as uncomfortably bright through the panel. 220 Ω was chosen by looking at the finished panel, not by arithmetic, and that is the correct method for an indicator.
+
+**Do not size this resistor from the datasheet forward voltage.** The part is quoted at 3.6 V, which is a figure at its rated current; at 8–15 mA it sits 0.6–0.8 V below that, and the two measurements above trace a consistent diode curve. Using the datasheet value underestimates available headroom by roughly 50% and produces a resistor that runs the LED far harder than intended.
+
+**Headroom and trim.** 1.77 V across the resistor makes current tolerant of forward-voltage spread between parts: a ±0.2 V spread moves current about 11%, which is not perceptible. Buying all ten from one reel remains sensible, but the per-LED PWM duty constants (§13) are expected to stay uniform. If brightness does read uneven through the finished panel, correct it with those constants rather than by changing resistors — the series resistor sets the brightness of the whole array, duty corrects differences between individual LEDs. Those constants are a **brightness-matching mechanism only**: duty is never used to signal anything, and every pattern in this section is plain on or off.
+
+Raise the series resistor further if the panel still reads bright in the room it will be used in; §11.2's reasoning about over-driven indicators applies with ten times the force. 330 Ω would give roughly 5 mA.
 
 #### 11.5.3 Indication model
 
@@ -913,7 +928,7 @@ constexpr uint8_t  SWITCH_LED_DUTY[SWITCH_LED_COUNT] =
 80. An orphan suffix tap from IDLE lights no switch LED.
 81. Criteria 41–56 all still pass unchanged. The panel LED on GP16 and its GP25 mirror are unaffected by this phase.
 82. Switch LED playback never delays a cue by more than 10 ms.
-83. *(hardware)* All ten LEDs read at comparable brightness from standing height through the finished panel. Any spread is corrected with `SWITCH_LED_DUTY`, not by changing resistors.
+83. *(hardware)* All ten LEDs read at comparable brightness from standing height through the finished panel, and the array as a whole is comfortable to look at on a dark stage. The series resistor sets the level for every LED (220 Ω as specified in §11.5.2, arrived at on the bench); **spread between individual LEDs is corrected with `SWITCH_LED_DUTY`, never by changing one LED's resistor.**
 
 ---
 
