@@ -278,6 +278,125 @@ REQUIRE_NO_SWITCH_LEDS();
 
 ---
 
+## Link and transport (Phase 10, PRD §7.5, §8.5, §9.4)
+
+> **Specified at planning; T32 implements and finalises it.** T32 is human-led. If T32 has to change a
+> name or signature below, it updates this section in the same commit, and the loop follows this file
+> as committed — not this planning draft. Everything above this heading is unchanged.
+
+A third surface beside the lamp and switch traces. The harness owns a **fake transport**: nothing
+reaches TinyUSB or BTstack on the host. Each pipeline pass now runs
+`buttons_scan` → `sequencer_tick` → `link_tick` → `loop_dispatch` → `ui_tick`, and after it the
+harness drains `link_poll_request` and the `midi_out` transport seam into capture buffers.
+
+`harness_reset()` additionally sets USB **mounted**, BLE **not ready**, no bond, window closed, and
+"power-up" at t=0 (the boot-connect window of §11.5.8 is measured from the reset).
+
+Types, defined in `src/link/link_state.h` and `src/midi/transport.h`:
+
+```cpp
+enum class LinkEventKind : uint8_t {
+    Ready,             // encrypted with the bonded key and subscribed (§9.3.1)
+    Lost,              // disconnected, or no longer ready
+    PairingStarted,    // a central began pairing inside the window
+    PairingSucceeded,  // bond stored
+    PairingFailed,
+    NoRadio            // pico2 build: the transport has no radio
+};
+struct LinkEvent { LinkEventKind kind; };
+
+enum class LinkRequestKind : uint8_t {
+    BeginPairing,      // clear bond, advertise for pairing (§7.5 steps 1–2)
+    EndPairing         // stop pairing advertising
+};
+struct LinkRequest { LinkRequestKind kind; };
+
+enum class Transport : uint8_t { Usb, Ble };
+struct TransportSend { Transport transport; uint8_t note; };
+```
+
+### `void harness_set_usb_mounted(bool mounted)`
+
+What `tud_mounted()` reports to the §9.4 policy. Takes effect for the next cue; processes the
+current timestamp, like `harness_press`.
+
+```cpp
+harness_set_usb_mounted(false);
+```
+
+### `void harness_link_event(LinkEventKind kind)`
+
+Inject a transport event into `link_state` at the current timestamp and run one pipeline pass.
+
+```cpp
+harness_link_event(LinkEventKind::Ready);
+REQUIRE(harness_link_ready());
+```
+
+### `REQUIRE_LINK_REQUESTS(...)` / `REQUIRE_NO_LINK_REQUESTS()`
+
+Ordered match of the `LinkRequest` kinds the link layer issued to the transport since the last
+clear.
+
+```cpp
+REQUIRE_LINK_REQUESTS(LinkRequest{LinkRequestKind::BeginPairing});
+```
+
+### `REQUIRE_TRANSPORT_SENDS(...)` / `REQUIRE_NO_TRANSPORT_SENDS()`
+
+Ordered match of every cue `midi_out` handed to a transport, with which one. This is the §9.4
+assertion. `REQUIRE_COMMANDS` is unchanged and still asserts what the sequencer emitted; this asserts
+where it went. A cue the policy dropped appears in `REQUIRE_COMMANDS` and not here.
+
+```cpp
+harness_set_usb_mounted(false);
+harness_link_event(LinkEventKind::Ready);
+// ...tap 10...
+REQUIRE_TRANSPORT_SENDS(TransportSend{Transport::Ble, 20});
+```
+
+### `const std::vector<std::vector<uint8_t>>& harness_ble_packets()`
+
+The encoded BLE-MIDI payloads handed to the fake BLE transport, one per cue (T33/T34).
+
+```cpp
+REQUIRE(harness_ble_packets().back().size() == 5U);
+```
+
+### Read-only link accessors
+
+These are the module's real accessors, not harness inventions; the sequencer and `ui` poll the same
+ones (QUESTIONS Q032).
+
+```cpp
+bool link_pairing_window_open();
+LinkPairingPhase link_pairing_phase();   // Advertising, Bonding, BondOk, Closed
+bool link_ready();
+bool link_boot_connect_pending();        // §11.5.8 boot flash owed and not yet played or dropped
+```
+
+`harness_link_ready()` and friends may wrap them for symmetry with `harness_button_pressed()`.
+
+### `void harness_clear_captures()`
+
+Also clears link-request, transport-send, and BLE-packet buffers.
+
+### Shape
+
+Imitate `tests/test_link.cpp` (added in T32). Bracket every window threshold the way
+`test_timing.cpp` brackets `HOLD_MS`:
+
+```cpp
+harness_advance_to(window_start + PAIRING_WINDOW_MS - 1U);
+REQUIRE(link_pairing_window_open());
+REQUIRE_NO_LINK_REQUESTS();
+harness_advance_to(window_start + PAIRING_WINDOW_MS);
+REQUIRE(!link_pairing_window_open());
+REQUIRE_LINK_REQUESTS(LinkRequest{LinkRequestKind::EndPairing});
+```
+
+---
+
 ## T03 only — do not copy
 
 These seed capture buffers so a matcher can be proven before the producer exists. Later tasks emit through the pipeline; do not call these. `harness_debug_set_switch_leds` exists because `ui_switch_leds()` returns 0 until the per-switch engine is implemented. It stores the current mask and, when the trace is non-empty, replaces the last sample. It does not append and does not move the clock. The next pipeline pass overwrites it from `ui_switch_leds()`.
@@ -306,7 +425,7 @@ REQUIRE_SWITCH_LEDS(SWITCH_LED(1));
 Defined in `src/input/buttons.h`:
 
 ```cpp
-enum class ButtonEventKind : uint8_t { Tap, Hold, ChordHold };
+enum class ButtonEventKind : uint8_t { Tap, Hold, ChordHold, PairChordHold }; // PairChordHold: Phase 10, setup only
 struct ButtonEvent {
     uint8_t id;
     ButtonEventKind kind;

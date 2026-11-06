@@ -724,6 +724,156 @@ different accessor.
 
 ---
 
+## Phase 10 — BLE MIDI (raised at planning, 2026-11-06)
+
+The decisions James made on 2026-10-31 are recorded in PRD §15 rows 18–25 and are not
+repeated here. The entries below are the **details the planning pass filled in** around those
+decisions. They stand unless overridden. **New Phase 10 questions start at Q033 (T30 raised Q033).**
+
+---
+
+## Q027 — [ASSUMED] — Phase 10 / T37
+
+**Task:** T37 switch-led-link-indications
+**Raised:** 2026-11-06
+**Type:** ASSUMPTION — rates and durations not given in the brief
+
+**Assumed:**
+Advertising flashes LEDs 2 and 4 at 500/500, bonding at 100/100, and a successful bond is one
+solid 2000 ms flash. The boot link confirmation is one 1000 ms flash on 2 and 4.
+
+**Reasoning:**
+James specified slow, fast, and one long flash. 500/500 is distinct from Setup's 1000/1000 and
+pending's 125/125 by at least a factor of two, which is the readability rule §11.4.1 set. 100/100
+reads as "busy". 2000 ms matches the boot channel indication's length, so "long" means the same
+thing everywhere.
+
+**Cost to reverse:** low — four constants in `config.h`.
+
+**ANSWER (only if overriding):**
+
+---
+
+## Q028 — [ASSUMED] — Phase 10 / T35, T36
+
+**Task:** T35 pair-chord-detection, T36 pairing-window
+**Raised:** 2026-11-06
+**Type:** ASSUMPTION — behaviour not specified in the brief
+
+**Assumed:**
+The 2+4 pair chord needs 2000 ms of continuous overlap, using the §6.5 rules (any overlap
+suppresses both taps; release clears the timer; re-form restarts it). The pairing window lasts
+60 s. While it is open, channel taps select nothing and the 30 s setup inactivity timeout is
+suspended, restarting when the window closes. The 6+9 exit closes the window and exits normally.
+
+**Reasoning:**
+2 s matches `HOLD_MS`, so it is a familiar duration under a shoe, and Setup Mode's 5 s entry
+already guards against accidents. 60 s is long enough to walk to an iPad, open the middleware,
+and pair. Ignoring taps keeps one indication on the surface (§11.5.3) — a channel change during
+the window would be invisible. Suspending the inactivity timeout stops Setup Mode from expiring
+underneath a pairing attempt.
+
+**Cost to reverse:** low — constants plus one branch in the sequencer.
+
+**ANSWER (only if overriding):**
+
+---
+
+## Q029 — [ASSUMED] — Phase 10 / T36, T38
+
+**Task:** T36 pairing-window, T38 ble-midi-transport
+**Raised:** 2026-11-06
+**Type:** ASSUMPTION — confirms the brief; flagged because it has a sharp edge
+
+**Assumed:**
+The pair chord **clears the stored bond immediately**, before any new host pairs, as James
+specified ("use the chord to clear bonding and begin advertising"). If the window then times out,
+the pedal is left unpaired.
+
+**Reasoning:**
+It is what was asked, and it makes the chord double as "forget this host" (a lent or sold pedal).
+The alternative — keep the old bond until a new one succeeds — is safer mid-service but needs a
+separate "forget" gesture to do the same job. Raised on 2026-10-31 and not overridden.
+
+**Cost to reverse:** low — move the clear from `BEGIN_PAIRING` to the bond-succeeded event in
+`ble_midi`, and keep `BLE_MAX_BONDS` at 1 by evicting the old entry then.
+
+**ANSWER (only if overriding):**
+
+---
+
+## Q030 — [ASSUMED] — Phase 10 / T38
+
+**Task:** T38 ble-midi-transport
+**Raised:** 2026-11-06
+**Type:** ASSUMPTION — security mechanism
+
+**Assumed:**
+The pedal does **not** use an advertising filter / accept list to restrict connections to the
+bonded host. Security rests on: the MIDI characteristic requires encryption; pairing is declined
+outside the window; unbonded connections are dropped after `BLE_UNBONDED_DROP_MS`.
+
+**Reasoning:**
+macOS and iPadOS connect from resolvable private addresses. Filtering on them needs controller-side
+address resolution, and whether the CYW43439 firmware in this SDK does that reliably is unverified.
+A filter that silently rejects the real host after an address rotation would look like "BLE is
+flaky" on stage. The encryption requirement gives the same guarantee — no MIDI without the bond —
+without that risk.
+
+**Cost to reverse:** medium — needs controller privacy verified on hardware first.
+
+**ANSWER (only if overriding):**
+
+---
+
+## Q031 — [ASSUMED] — Phase 10 / T37
+
+**Task:** T37 switch-led-link-indications
+**Raised:** 2026-11-06
+**Type:** ASSUMPTION — scope of "connected at boot"
+
+**Assumed:**
+The boot link flash plays at most once per power cycle, only if the host becomes ready within
+30 s of power-up, after the boot channel indication finishes, and is dropped by any accepted press.
+Later reconnects and disconnects show nothing.
+
+**Reasoning:**
+James asked for a flash "if bluetooth is connected at boot". A host takes a few seconds to
+reconnect after power-up, so "at boot" needs a window; 30 s covers a slow iPad. Flashing on every
+reconnect mid-service would put an unexplained indication on the floor during a song. Waiting for
+the boot channel indication keeps one indication at a time.
+
+**Cost to reverse:** low — drop the once-per-boot latch to flash on every reconnect.
+
+**ANSWER (only if overriding):**
+
+---
+
+## Q032 — [ASSUMED] — Phase 10 / T32, T36, T37
+
+**Task:** T32 link-harness (shape), used by T36 and T37
+**Raised:** 2026-11-06
+**Type:** ASSUMPTION — architecture
+
+**Assumed:**
+Bluetooth session state lives in a new pure module, `src/link/link_state`, which owns the pairing
+window. The sequencer and `ui` **poll** its accessors; the sequencer sends `BEGIN_PAIRING` /
+`END_PAIRING` through a drain forwarded by `loop_dispatch`. `UiEvent` is unchanged. The 2+4 chord
+reaches the sequencer as one new `ButtonEventKind::PairChordHold`.
+
+**Reasoning:**
+Advertising, bonding, and "BLE ready" are transport facts, not sequencer states, so they should not
+flow through `UiEvent`. Polling is the Q006 / Q008 / Q009 pattern and the request drain is the Q019
+pattern, so no new architectural pattern is introduced. Chord detection already lives in `input`
+(§12.1) and input already knows when setup is active (Q006). A new `ButtonEventKind` value is
+additive: it is only emitted in setup, where no existing test overlaps 2 and 4.
+
+**Cost to reverse:** medium once T36/T37 depend on it.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Q033 — [ASSUMED] — T30
 
 **Task:** T30 pico2w-board-target

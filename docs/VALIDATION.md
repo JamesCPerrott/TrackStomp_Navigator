@@ -12,17 +12,20 @@ means the hardware cannot express the criterion at all; say why.
 
 ## Run record
 
-| Field | T22 / T23 (v1) | T29 (Phase 9) |
-|---|---|---|
-| Firmware tag | `v1.0` | *TBD* |
-| Firmware commit | `47556d433863082e9f1b942dcd624cb18cf6d65b` | `796ff88` *(confirm)* |
-| `git describe` | `v1.0` | `v1.0-14-g796ff88` |
-| Artifact SHA-256 | `7d80121706085a8244155f47c5d5037dc547b8703f66418a9dd807239657e0b2` | *TBD* |
-| Board revision | Breadboard / pre-cape | Cape v1 |
-| Date of run | *TBD* | *TBD* |
-| Host OS | *TBD* | *TBD* |
-| Playback version | *TBD* | *TBD* |
-| Camera for LED timing | *TBD — 240 fps needed for 45–53, 64–66, 71* | *TBD* |
+| Field | T22 / T23 (v1) | T29 (Phase 9) | T39 (Phase 10) |
+|---|---|---|---|
+| Firmware tag | `v1.0` | *TBD* | *TBD* |
+| Firmware commit | `47556d433863082e9f1b942dcd624cb18cf6d65b` | `796ff88` *(confirm)* | *TBD* |
+| `git describe` | `v1.0` | `v1.0-14-g796ff88` | *TBD* |
+| Artifact SHA-256 | `7d80121706085a8244155f47c5d5037dc547b8703f66418a9dd807239657e0b2` | *TBD* | *TBD* |
+| Board revision | Breadboard / pre-cape | Cape v1 | *TBD* |
+| Date of run | *TBD* | *TBD* | *TBD* |
+| Host OS | *TBD* | *TBD* | *TBD* |
+| Playback version | *TBD* | *TBD* | *TBD* |
+| Camera for LED timing | *TBD — 240 fps needed for 45–53, 64–66, 71* | *TBD* | *TBD* |
+| Board | | | Pico 2 W, `pico2_w` build |
+| Mac / iPadOS versions | | | *TBD* |
+| iPad BLE MIDI middleware | | | *TBD* |
 
 **Rebuild and reflash before every run.** Ninja only rebuilds on source change, and a stale `.uf2`
 in `build/` has already cost one debugging session. Record the commit above from `git describe`,
@@ -32,13 +35,13 @@ not from `PROGRESS.md` (every task entry reads `(this commit)` by design).
 
 ## Summary
 
-| Result | v1 (1–60) | Phase 9 (61–83) |
-|---|---|---|
-| PASS | | |
-| FAIL | | |
-| TUNED | | |
-| N/A | | |
-| BLOCKED | | |
+| Result | v1 (1–60) | Phase 9 (61–83) | Phase 10 (102–114) |
+|---|---|---|---|
+| PASS | | | |
+| FAIL | | | |
+| TUNED | | | |
+| N/A | | | |
+| BLOCKED | | | |
 
 ---
 
@@ -238,4 +241,47 @@ and whether a PRD amendment or a `docs/QUESTIONS.md` entry was raised. `None` if
 IDLE." No task's `Covers:` line claims it. The behaviour is almost certainly present via T09
 (unconditional exit) and T19 (no-op write skip), but nothing asserts it. Verify it explicitly here,
 and consider adding the host test.
+
+---
+
+## T39 — BLE MIDI bench validation (Phase 10)
+
+Host-testable Phase 10 criteria (84–101) are covered by `ctest`. These are the hardware ones. Run 110
+in the sealed enclosure, standing on it, **before** deciding anything about shielding (PRD §11.6).
+
+| # | Criterion | Result | Notes |
+|---|---|---|---|
+| 102 | Pico 2 W enumerates as criteria 1 and 2 | | |
+| 103 | GATT scan shows only GAP, GATT, BLE-MIDI; adv data minimal | | Scanner app: |
+| 104 | No pairing outside the window; no MIDI without a bond; unbonded drop ~5 s; fresh unit silent | | |
+| 105 | All 33 cues over BLE on Mac and iPad | | Middleware: |
+| 106 | Mac reconnects after power cycle; iPad reconnect procedure recorded | | iPad needs: |
+| 107 | Pair chord + timeout forgets the old host; re-pair after "Forget" works | | |
+| 108 | BLE latency median ≤ 20 ms, worst ≤ 40 ms (100 cues); USB still ≤ 10 ms | | Interval granted — Mac: · iPad: |
+| 109 | USB plugged in → USB only, no double triggers; unplugged → BLE next cue | | |
+| 110 | Range in sealed enclosure; 30-min soak at stage distance | | See table below |
+| 111 | Onboard LED (WL_GPIO0) mirrors the panel engine; no GP23/24/25/29 use | | |
+| 112 | Zero flash writes during play and across five reconnects | | Instrumented build commit: |
+| 113 | 9 V only works; USB only unchanged | | |
+| 114 | Channel 8 survives the upgrade to Phase 10 firmware | | |
+
+**Range (criterion 110)** — sealed enclosure on the floor, operator standing on it.
+
+| Distance | Host | RSSI (dBm) | Dropouts in 5 min | Notes |
+|---|---|---|---|---|
+| 3 m | Mac | | | |
+| 5 m | Mac | | | |
+| 10 m | Mac | | | |
+| 3 m | iPad | | | |
+| 5 m | iPad | | | |
+| 10 m | iPad | | | |
+
+**BLE soak observations (criterion 110)**
+
+- Distance and host:
+- Total runtime:
+- Cues sent:
+- Dropped, duplicated, or late cues:
+- Disconnects and how long reconnect took:
+- Shielding decision:
 
