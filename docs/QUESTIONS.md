@@ -724,6 +724,28 @@ different accessor.
 
 ---
 
+## Q033 — [ASSUMED] — T30
+
+**Task:** T30 pico2w-board-target
+**Raised:** 2026-11-06
+**Type:** ASSUMPTION — local, reversible
+
+**Assumed:**
+If `cyw43_arch_init()` fails, the pedal degrades to USB-only. The normal scan
+loop still runs. `cyw43_arch_poll()` is skipped, and `board_led` writes
+nothing. The failure is logged only on `DEBUG_UART` builds.
+
+**Reasoning:**
+A pedal that stops scanning mid-service is worse than one that has lost
+Bluetooth, and USB is the main transport. The PRD does not say what to do
+when radio init fails.
+
+**Cost to reverse:** low — halt or blink an error instead of continuing.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._

@@ -1,4 +1,4 @@
-LOOP-STATUS: HALTED — T26–T28 complete; T29 is hardware
+LOOP-STATUS: NOT STARTED — Phase 10
 
 # Progress log
 
@@ -899,3 +899,66 @@ silent full-on.
 
 **Defects noted in earlier tasks (not fixed):**
 None.
+
+---
+
+# Phase 10 — BLE MIDI on the Pico 2 W
+
+Phase 9's automated tasks are logged above. T29 is still hardware and is not a blocker for this phase.
+
+## T30 — pico2w-board-target — 2026-11-06
+
+**Status:** build complete; hardware not run
+**Branch:** task/T30-pico2w-board-target
+**Commit:** (this commit)
+**Criteria covered:** 111 (partial — gpio call-site review below; the onboard mirror was not observed). 102 was not run.
+**Tests:** none added, 22 total, all green. pico2 and pico2_w `.uf2` produced. T10–T13 still pass (`led_pattern_engine`, `led_performance_patterns`, `led_chord_progress`, `led_channel_blink`), so criteria **41–56 still pass**.
+
+**Done:**
+`pico2_w` preset configures into `build-w`. The configure log says `Target board (PICO_BOARD) is 'pico2_w'.` and `Using board configuration from .../boards/pico2_w.h`. The `pico2` preset still reports `pico2` and `pico2.h`. `CMakeLists.txt` sets `PICO_BOARD` to `pico2` only when the caller has not set it (T01's pin, without overriding T30). CI gains a Firmware build (pico2_w) job that fails before configure if `lib/btstack/src/bluetooth.h`, `lib/cyw43-driver/src/cyw43.h`, or `lib/lwip` is missing (`lib/lwip/src/Filelists.cmake` is the SDK's own checkout test, so an empty submodule directory fails too).
+
+`pico2_w` links `pico_cyw43_arch_poll` only. `CYW43_LWIP=0` and `PICO_CYW43_ARCH_POLL=1` are on that target's compile line. `PICO_CYW43_ARCH_THREADSAFE_BACKGROUND`, `PICO_CYW43_ARCH_FREERTOS`, and `CYW43_ENABLE_BLUETOOTH` are not defined. The driver's default `CYW43_LWIP` is 1 (`cyw43_config.h`); `pico_cyw43_arch_poll` does not clear it, so the target sets 0. The ELF defines `cyw43_arch_init` and the weak no-lwIP `cyw43_cb_tcpip_*` stubs. It does not define `lwip_`, `btstack_`, or FreeRTOS symbols. The pico2 ELF has no `cyw43` symbols. The SDK still compiles `cyw43_arch_threadsafe_background.c` and `cyw43_arch_freertos.c` because they are sources of `pico_cyw43_arch`; both objects are empty under the poll arch.
+
+`cyw43_arch_init()` runs once at boot on `pico2_w`, before `board_led_init`. `cyw43_arch_poll()` runs immediately after `tud_task()` when that init returned 0. A failed init logs `cyw43_arch_init failed: %d` on `DEBUG_UART` builds only, skips the poll, and skips every onboard-LED write (Q033). The scan loop still runs. No BTstack.
+
+`src/board/board_led.cpp` owns the mirror. pico2 drives GP25 (`kPico2OnboardLed`) and is initialised beside `ui_led_init`. pico2_w calls `cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, …)` and writes only when the level changes. `static_assert(CYW43_WL_GPIO_LED_PIN == 0)` and `#error` if `PICO_DEFAULT_LED_PIN` is defined both sit in the pico2_w branch; that build succeeded, so the pin is 0 and the macro is absent. `ui.cpp` lost T17's four GP25 lines and nothing else. `ui_lamp()` is unchanged. `LED_ONBOARD_GPIO` left `config.h` so a pico2_w translation unit does not name pin 25.
+
+**gpio_ call sites.** The pattern excludes `cyw43_arch_gpio_put` and `switch_led_gpio_value`. A bare search for 23 or 25 is not evidence: those numbers are cue notes.
+
+```
+grep -nE '(^|[^[:alnum:]_])gpio_(init|init_mask|set_dir|set_dir_in_masked|set_drive_strength|put|put_masked|pull_up|get_all)\(' -r src --include='*.cpp' --include='*.h' --include='*.c'
+```
+
+```
+src/input/buttons.cpp:319:    gpio_init_mask(kButtonGpioMask);
+src/input/buttons.cpp:320:    gpio_set_dir_in_masked(kButtonGpioMask);
+src/input/buttons.cpp:322:        gpio_pull_up(BUTTON_GPIO_BASE + i);
+src/input/buttons.cpp:329:    return gpio_get_all() & kButtonGpioMask;
+src/ui/ui.cpp:391:    gpio_put(LED_PANEL_GPIO, g_lamp);
+src/ui/ui.cpp:392:    gpio_put_masked(switch_led_pin_mask(), switch_led_gpio_value(g_switch_mask));
+src/ui/ui.cpp:411:    gpio_init(LED_PANEL_GPIO);
+src/ui/ui.cpp:412:    gpio_set_dir(LED_PANEL_GPIO, GPIO_OUT);
+src/ui/ui.cpp:413:    gpio_set_drive_strength(LED_PANEL_GPIO, GPIO_DRIVE_STRENGTH_4MA);
+src/ui/ui.cpp:414:    gpio_put(LED_PANEL_GPIO, false);
+src/ui/ui.cpp:418:        gpio_init(pin);
+src/ui/ui.cpp:419:        gpio_set_dir(pin, GPIO_OUT);
+src/ui/ui.cpp:420:        gpio_set_drive_strength(pin, GPIO_DRIVE_STRENGTH_4MA);
+src/ui/ui.cpp:422:    gpio_put_masked(switch_led_pin_mask(), 0U);
+src/board/board_led.cpp:36:    gpio_put(kPico2OnboardLed, on);
+src/board/board_led.cpp:49:    gpio_init(kPico2OnboardLed);
+src/board/board_led.cpp:50:    gpio_set_dir(kPico2OnboardLed, GPIO_OUT);
+```
+
+On a pico2_w compile, the three `board_led.cpp` hits are in the `#else` of `RASPBERRYPI_PICO2_W` (`kPico2OnboardLed` is 25 only there). `nm` of `build-w` `board_led.cpp.o` shows `cyw43_arch_gpio_put` and not `gpio_init`. The pico2 object shows `gpio_init` and not `cyw43`. The other calls cannot receive 23, 24, 25, or 29: `kButtonGpioMask` is bits 6–15, `LED_PANEL_GPIO` is 16, and `SWITCH_LED_GPIO` is {5, 4, 3, 2, 22, 21, 20, 19, 18, 17}. Nothing in `src/` uses `PICO_DEFAULT_LED_PIN` as a pin.
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q033 [ASSUMED]
+
+**Defects noted in earlier tasks (not fixed):**
+None. Criterion 102 and the onboard-LED half of 111 need a Pico 2 W. Not run here.
+

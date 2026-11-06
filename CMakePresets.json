@@ -12,6 +12,16 @@
             }
         },
         {
+            "name": "pico2_w",
+            "displayName": "Firmware (pico2_w)",
+            "description": "Cross-compile the firmware for the Pico 2 W",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build-w",
+            "cacheVariables": {
+                "PICO_BOARD": "pico2_w"
+            }
+        },
+        {
             "name": "host",
             "displayName": "Host tests",
             "description": "Build input/, sequencer/, and ui/ for the host with no Pico SDK",
