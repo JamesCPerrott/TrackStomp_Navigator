@@ -105,3 +105,68 @@ jobs:
         run: |
           strings -d build/trackstomp_navigator.elf | grep -E '/(home|Users)/' && exit 1 || true
           strings -a build/trackstomp_navigator.uf2 | grep -E '/(home|Users)/' && exit 1 || true
+
+  firmware-build-w:
+    name: Firmware build (pico2_w)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib \
+            pkg-config libusb-1.0-0-dev
+
+      # Same SDK cache as the pico2 job. The clone step inits submodules;
+      # the next step refuses to configure if the radio ones are absent.
+      - name: Cache Pico SDK
+        id: cache-sdk
+        uses: actions/cache@v4
+        with:
+          path: ~/pico/pico-sdk
+          key: pico-sdk-2.3.1
+
+      - name: Clone Pico SDK
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/pico
+          git clone --branch 2.3.1 --depth 1 \
+            https://github.com/raspberrypi/pico-sdk.git ~/pico/pico-sdk
+          git -C ~/pico/pico-sdk submodule update --init --depth 1
+
+      - name: Require BTstack, cyw43-driver, and lwIP
+        env:
+          PICO_SDK_PATH: /home/runner/pico/pico-sdk
+        run: |
+          set -euo pipefail
+          test -f "$PICO_SDK_PATH/lib/btstack/src/bluetooth.h"
+          test -f "$PICO_SDK_PATH/lib/cyw43-driver/src/cyw43.h"
+          test -d "$PICO_SDK_PATH/lib/lwip"
+          # An uninitialized submodule can leave an empty directory behind.
+          test -f "$PICO_SDK_PATH/lib/lwip/src/Filelists.cmake"
+
+      - name: Cache picotool build
+        uses: actions/cache@v4
+        with:
+          path: ~/pico/picotool-build
+          key: picotool-2.3.1-${{ runner.os }}
+
+      - name: Configure
+        env:
+          PICO_SDK_PATH: /home/runner/pico/pico-sdk
+        run: cmake --preset pico2_w
+
+      - name: Build
+        env:
+          PICO_SDK_PATH: /home/runner/pico/pico-sdk
+        run: ninja -C build-w
+
+      - name: Confirm UF2 was produced
+        run: test -n "$(find build-w -name '*.uf2' -print -quit)"
+
+      - name: No absolute source paths
+        run: |
+          strings -d build-w/trackstomp_navigator.elf | grep -E '/(home|Users)/' && exit 1 || true
+          strings -a build-w/trackstomp_navigator.uf2 | grep -E '/(home|Users)/' && exit 1 || true

@@ -18,6 +18,7 @@ if (BUILD_HOST_TESTS)
         src/ui/ui.cpp
         src/midi/midi_out.cpp
         src/storage/config_store.cpp
+        src/board/board_led.cpp
         src/main.cpp
     )
     target_include_directories(firmware_host PUBLIC
@@ -134,7 +135,12 @@ if (BUILD_HOST_TESTS)
     target_link_libraries(test_switch_setup PRIVATE harness)
     add_test(NAME switch_led_setup_chord COMMAND test_switch_setup)
 else()
-    set(PICO_BOARD pico2)
+    # T01 pinned the board here so a bare configure stays on pico2.
+    # T30: the pico2_w preset sets PICO_BOARD before this file runs; do not
+    # overwrite a board the caller already chose.
+    if (NOT PICO_BOARD)
+        set(PICO_BOARD pico2)
+    endif()
     set(PICOTOOL_FETCH_FROM_GIT_PATH $ENV{HOME}/pico/picotool-build)
 
     if (NOT PICO_SDK_PATH AND NOT DEFINED ENV{PICO_SDK_PATH})
@@ -168,6 +174,7 @@ else()
         src/midi/usb_descriptors.c
         src/storage/config_store.cpp
         src/ui/ui.cpp
+        src/board/board_led.cpp
     )
 
     target_include_directories(trackstomp_navigator PRIVATE
@@ -182,6 +189,24 @@ else()
         hardware_flash
         hardware_sync
     )
+
+    # pico_cyw43_arch_poll is created only when the SDK's pico_lwip target
+    # exists, so lib/lwip must be checked out. Nothing here links pico_lwip,
+    # any *_lwip_* arch, threadsafe_background, FreeRTOS, or Classic.
+    # cyw43_config.h defaults CYW43_LWIP to 1; pico_cyw43_arch_poll does not
+    # clear it (pico_cyw43_arch_none does, and also selects threadsafe_background).
+    if (PICO_BOARD STREQUAL "pico2_w")
+        if (NOT TARGET pico_cyw43_arch_poll)
+            message(FATAL_ERROR
+                "pico_cyw43_arch_poll is unavailable. Check out lwIP at "
+                "lib/lwip in the Pico SDK. Do not link an lwIP arch; CYW43_LWIP stays 0.")
+        endif()
+        target_link_libraries(trackstomp_navigator pico_cyw43_arch_poll)
+        target_compile_definitions(trackstomp_navigator PRIVATE
+            CYW43_LWIP=0
+            TRACKSTOMP_PICO2_W=1
+        )
+    endif()
 
     pico_enable_stdio_usb(trackstomp_navigator 0)
     if (DEBUG_UART)

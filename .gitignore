@@ -1,6 +1,7 @@
 # Build trees
 build/
 build-host/
+build-w/
 
 # Build artifacts
 *.uf2
