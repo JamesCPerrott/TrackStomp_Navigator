@@ -14,15 +14,25 @@ Applies to every agent session in this repo, looped or interactive.
 
 PRD §15 lists decisions already made with reasoning. Read it before raising a question — most first-instinct questions are answered there.
 
-Use `/context7-mcp` for Pico SDK, TinyUSB, and CMake documentation. Do not rely on recalled API signatures.
+Use `/context7-mcp` for Pico SDK, TinyUSB, BTstack, cyw43-driver, and CMake documentation. Do not rely on recalled API signatures. **For BTstack and the CYW43 driver, the headers under `$PICO_SDK_PATH/lib/btstack` and `$PICO_SDK_PATH/lib/cyw43-driver` are authoritative** — the SDK pins a specific BTstack version and online docs may describe a different one.
 
 ## Hard stops
 
 **Never perform RP2350 OTP fuse operations, secure boot signing, or bootloader/SWD lockdown.** PRD §5.2 is explicitly out of scope for v1. These operations are irreversible and permanently brick the board. If a task appears to require them, that is a BLOCKER question, not a thing to attempt.
 
-Also out of scope, do not build or research: display/I2C driver, Bluetooth, WiFi, BLE MIDI, expression pedal input, runtime-editable cue mappings, preset banks, MIDI channels 11–16.
+Also out of scope, do not build or research: display/I2C driver, WiFi or network MIDI, Bluetooth Classic, expression pedal input, runtime-editable cue mappings, preset banks, MIDI channels 11–16.
 
-**The display is superseded, not deferred.** PRD §11.5 puts status LEDs on GP4/GP5, which were the reserved I2C pins. Do not treat those pins as reserved and do not propose reviving the display as part of Phase 9.
+**BLE MIDI is in scope from Phase 10 only, and only as PRD §5.4 and §9.3 define it.** In particular, never add:
+
+- any GATT service other than GAP, GATT, and BLE-MIDI — no Device Information, Battery, DFU/OTA, UART-over-BLE, HID, or vendor service, not even in a debug build;
+- any path that accepts pairing outside the pairing window, or that stores more than `BLE_MAX_BONDS` bonds;
+- any over-the-air console, log, or firmware update;
+- any code on `pico2_w` that configures, reads, or writes GP23, GP24, GP25, or GP29 — those pins belong to the radio (PRD §11.1);
+- any flash write outside `config_store` and BTstack's flash bank, or a bond-store write on a performance path (PRD §10.3).
+
+Each of these is a BLOCKER question, not a judgement call.
+
+**The display is superseded and not planned.** PRD §11.5 puts status LEDs on GP4/GP5, which were the reserved I2C pins. Do not treat those pins as reserved and do not propose reviving the display.
 
 ## Scope discipline
 
@@ -45,12 +55,14 @@ This toolchain is known-good. Do not change versions or suggest alternatives wit
 | clang-format / clang-tidy | 19 (CI pins the same major version) |
 | cmake / ninja | 3.31.x / Trixie default |
 | Platform | `rp2350-arm-s`, compiler `pico_arm_cortex_m33_gcc` |
+| Boards | `pico2` (USB-only) and `pico2_w` (Phase 10). Both must build at every commit. |
+| BTstack / cyw43-driver | Whatever SDK 2.3.1 pins as submodules under `$PICO_SDK_PATH/lib/`. Never update them. |
 
 **picotool here is built without libusb.** It does ELF-to-UF2 conversion only. `picotool load`, `picotool info`, and `picotool reboot` are unavailable — never suggest them. Flashing is drag-and-drop: hold BOOTSEL while plugging in, the board mounts as `RP2350`, copy the `.uf2` across.
 
 ## Commands
 
-**Always use the presets.** `CMakePresets.json` defines `pico2` and `host`; they fix the generator (Ninja) and the cache variables. Invoking `cmake -B build` directly is not equivalent — without `-G Ninja` you get Unix Makefiles and the subsequent `ninja -C build` fails. CI runs exactly these commands, so a command that works here works there.
+**Always use the presets.** `CMakePresets.json` defines `pico2`, `pico2_w` (from T30), and `host`; they fix the generator (Ninja) and the cache variables. Invoking `cmake -B build` directly is not equivalent — without `-G Ninja` you get Unix Makefiles and the subsequent `ninja -C build` fails. CI runs exactly these commands, so a command that works here works there.
 
 ```bash
 # Host tests — the primary feedback signal
@@ -62,14 +74,18 @@ ctest --test-dir build-host --output-on-failure
 cmake --preset pico2
 ninja -C build
 
+# Pico 2 W target build (Phase 10, from T30) — must also compile clean and produce a .uf2
+cmake --preset pico2_w
+ninja -C build-w
+
 # Style and static analysis, changed files only
 clang-format --dry-run --Werror <files>
 clang-tidy -p build-host <files>
 ```
 
-A build directory remembers the generator and cache variables from when it was configured. If a preset refuses to configure an existing directory, delete it (`rm -rf build` or `rm -rf build-host`) and reconfigure — do not work around it by dropping the preset.
+A build directory remembers the generator and cache variables from when it was configured. If a preset refuses to configure an existing directory, delete it (`rm -rf build`, `rm -rf build-w`, or `rm -rf build-host`) and reconfigure — do not work around it by dropping the preset.
 
-`PICO_BOARD` is set by the `pico2` preset; the picotool fetch path is set inside `CMakeLists.txt`. No extra flags are ever needed.
+`PICO_BOARD` is set by the `pico2` and `pico2_w` presets; the picotool fetch path is set inside `CMakeLists.txt`. No extra flags are ever needed.
 
 **If a documented command here does not work, that is a BLOCKER question, not something to route around.** These are also the commands CI runs; silently using a different invocation makes local green and CI red diverge.
 
@@ -85,7 +101,7 @@ Because the SDK is external, `CMakeLists.txt` asserts a minimum `PICO_SDK_VERSIO
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs on every branch. Two jobs: **Host tests** (configure, build, `ctest`, `clang-format`, `clang-tidy`) and **Firmware build (pico2)** (cross-compile, confirm a `.uf2` is produced).
+`.github/workflows/ci.yml` runs on every branch. Three jobs from T30 onward: **Host tests** (configure, build, `ctest`, `clang-format`, `clang-tidy`), **Firmware build (pico2)**, and **Firmware build (pico2_w)** (cross-compile, confirm a `.uf2` is produced). The `pico2_w` job needs the SDK's `lib/btstack` and `lib/cyw43-driver` submodules checked out.
 
 CI is an independent check on self-reported results, run on a clean checkout with only committed files present. It catches the case where something works locally because of an uncommitted or ignored file.
 
@@ -102,6 +118,10 @@ Keep the workflow and the commands above in agreement. Changing how the project 
 - The per-switch engine resolves to **one indication at a time** owning at most two LEDs. Do not implement it as ten independent per-LED state machines; that shape passes unit tests and fails criterion 78.
 - The per-switch engine recovers a cue's originating buttons by reverse lookup in `CUE_TABLE`. Do not extend `UiEvent` and do not read `ButtonEvent` from `ui`.
 - `harness_lamp_trace()` is finished-work API. Phase 9 adds `harness_switch_trace()` beside it; widening or retyping the lamp trace turns T10–T13 red.
+- **Phase 10.** `input`, `sequencer`, and `ui` never include BTstack, `cyw43_*`, or TinyUSB headers. `src/midi/ble_midi.cpp` is the only file that includes BTstack. `src/board/board_led.cpp` is the only file that touches the onboard LED.
+- **Phase 10.** `UiEvent` does not change. `ui` reads Bluetooth state by polling `link_state` accessors. The sequencer reads `link_pairing_window_open()` by polling and sends requests through its link-request drain; it never calls `link_*` mutators or `ble_*`.
+- **Phase 10.** `ButtonEventKind::PairChordHold` is the only new `ButtonEvent` value, and it is emitted only while setup is active.
+- **Phase 10.** `midi_out` chooses the transport per cue through the `transport` policy. A cue is never sent on both transports.
 - `buttons_poll_event` is the harness drain for `ButtonEvent`. Consuming that queue without leaving a copy turns every `ButtonEvent` assertion in T04–T07 red, and the failures will look like regressions in finished work rather than a defect in the current task.
 
 ## Verification bar
@@ -110,7 +130,7 @@ A task is complete only when:
 
 1. Host tests for it are written and passing.
 2. The full `ctest` suite is green — no regressions, not just the new tests.
-3. The target build compiles clean.
+3. Both target builds (`pico2` and, from T30, `pico2_w`) compile clean.
 4. `clang-format` and `clang-tidy` are clean on changed files.
 
 Never mark a task complete speculatively or before its tests pass.
