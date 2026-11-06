@@ -21,7 +21,7 @@ static tusb_desc_device_t const desc_device = {.bLength            = sizeof(tusb
                                                .bMaxPacketSize0    = CFG_TUD_ENDPOINT0_SIZE,
                                                .idVendor           = 0x2E8A,
                                                .idProduct          = 0xFFFE,
-                                               .bcdDevice          = 0x0100,
+                                               .bcdDevice          = 0x0110,
                                                .iManufacturer      = STRID_MANUFACTURER,
                                                .iProduct           = STRID_PRODUCT,
                                                .iSerialNumber      = STRID_SERIAL,
