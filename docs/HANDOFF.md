@@ -2,7 +2,7 @@
 
 Carry this into a new conversation to pick up where the previous one left off.
 
-Last updated 2026-10-31, at `master` = `796ff88` (`git describe`: `v1.0-14-g796ff88`).
+Last updated 2026-11-06. Code at `master` = `796ff88` (`git describe`: `v1.0-14-g796ff88`); **Phase 10 (BLE MIDI) is scoped in the docs but no code has been written.**
 
 ---
 
@@ -10,7 +10,7 @@ Last updated 2026-10-31, at `master` = `796ff88` (`git describe`: `v1.0-14-g796f
 
 A USB class-compliant MIDI foot controller driving **MultiTracks Playback**. Ten momentary footswitches send Note On cues that select song sections. Buttons 1–5 pick a section type (Intro, Verse, Chorus, Bridge, Outro), buttons 6–9 pick a variant (One, Two, Three, Tag), and every section cue is a two-button tap sequence. 33 cues total, notes 0–32.
 
-Built on a **Raspberry Pi Pico 2 (RP2350)** in C++ on the Pico SDK. The language choice is driven by a security requirement: the firmware must be compiled, not interpreted, so plugging in a USB cable exposes a MIDI endpoint and nothing else — no browsable source, no mass storage volume, no serial console.
+Built on a **Raspberry Pi Pico 2 (RP2350)** in C++ on the Pico SDK, moving to a **Pico 2 W** for BLE MIDI in Phase 10. The language choice is driven by a security requirement: the firmware must be compiled, not interpreted, so plugging in a USB cable exposes a MIDI endpoint and nothing else — no browsable source, no mass storage volume, no serial console.
 
 ---
 
@@ -23,6 +23,8 @@ Built on a **Raspberry Pi Pico 2 (RP2350)** in C++ on the Pico SDK. The language
 - T22 and T23 (bench validation, soak) **were run but the results were never written to `docs/VALIDATION.md`.** The file exists as a populated skeleton with every criterion listed and the result column empty. Rather than reconstruct them from memory, a **full validation round will be run after final assembly** and its results will fill in VALIDATION.md for T22, T23 and T29 together.
 - **Phase 9** (T24–T28) added ten per-switch status LEDs and is merged. T24 and T25 were human-led bootstrap; T26–T28 ran under the loop.
 - **T29 (per-switch LED bench validation, criteria 61–83) has been completed on the bench, but the results are not yet recorded.** They will be captured in the post-assembly validation round above.
+- **Phase 10 (T30–T39) — BLE MIDI — is scoped and not started.** PRD, TASK-LIST, AGENTS, QUESTIONS (Q027–Q032), TEST-HARNESS, LOOP-PROMPT, PROGRESS, and VALIDATION were all amended on 2026-11-06. The loop status line reads `NOT STARTED — Phase 10`. T30–T32 are human-led bootstrap; the loop runs T33–T37; T38 (the BTstack transport) is human-led; T39 is hardware.
+- **The display is dropped** for the foreseeable future (decided 2026-10-31). PRD §16 says "not planned".
 - Enumeration verified on Linux: `2e8a:fffe`, `TrackStomp Navigator`, jack string `Navigator Cues`, MIDI Streaming subclass, no CDC interface.
 
 ---
@@ -32,6 +34,18 @@ Built on a **Raspberry Pi Pico 2 (RP2350)** in C++ on the Pico SDK. The language
 Understanding *why* these were chosen matters more than the values themselves — several were revised more than once before settling.
 
 **Input grammar.** Buttons 1–5 are prefix-only on tap, so nothing fires on a bare tap and no double-tap window is needed. Button 10 taps to Repeat and holds to Loop. Button 8 is the only suffix button with a hold (Mute MIDI, note 32) — chosen because it is not a chord member. Holds are 2 s; the 6+9 chord for Setup Mode is 5 s of *continuous* overlap.
+
+**BLE MIDI (Phase 10).** Decided with James on 2026-10-31 (PRD §15 rows 18–25):
+- Playback runs on **Mac and iPad only**. Mac has native BLE MIDI; iPad needs BLE MIDI middleware to connect.
+- BLE exists for **cable-free use from the 9 V supply and for older iPads**. 9 V is no longer optional on a BLE unit.
+- **USB wins** when both are connected, per cue, never both — otherwise the host sees two ports and every cue fires twice. The BLE link stays up for failover.
+- **Pairing lives in Setup Mode**: hold 2+4 for 2 s, which **clears the bond** and opens a 60 s pairing window. Pairing is persistent (one bond). Just Works, accepted.
+- **LEDs 2 and 4**: slow flash advertising, fast flash bonding, one long flash on success, and one flash if the host connects at boot.
+- **Security**: one GATT service (BLE-MIDI), encryption required on the MIDI characteristic, pairing declined outside the window, no advertising at all until first paired. PRD §5.4.
+- **Latency**: USB keeps its 10 ms goal; BLE has a measured budget (median ≤ 20 ms, worst ≤ 40 ms) because it is bounded by the connection interval.
+- **Enclosure shielding is deferred** until range is measured in the sealed die-cast box.
+
+**Pico 2 W gotchas the plan already handles.** GP25 is the radio's SPI chip-select on the W, so v1's GP25 onboard-LED write would fight the radio; the onboard LED is now on the CYW43 (`WL_GPIO0`) and written only on change (T30). BTstack's default bond-store offset differs from what v1's flash-size override implies, and v1 derives the config address from that override; T31 pins both to explicit offsets so the config sector never moves (§10.1). BTstack is a second flash writer; T38 must prove it never writes during play or on reconnect (§10.3).
 
 **Hold lockout.** Once a hold fires, all input is ignored until that button is released, and any button still pressed at release is tap-suppressed to prevent phantom cues.
 
@@ -50,6 +64,8 @@ Understanding *why* these were chosen matters more than the values themselves �
 ---
 
 ## Hardware
+
+**Board.** Phase 10 fits a **Pico 2 W** — same footprint and header, every pin this design uses unchanged. GP23/24/25/29 belong to the radio and are never touched by application code.
 
 **Pins.** Buttons on GP6–GP15 with internal pull-ups only (RP2350 erratum makes pull-downs unusable). Status LEDs 1–10 on **GP5, GP4, GP3, GP2, GP22, GP21, GP20, GP19, GP18, GP17** — deliberately not contiguous, so the engine uses a bit-position table rather than an ordered range. GP26–GP28 reserved for future expression input. Every header pin is now allocated.
 
@@ -114,18 +130,13 @@ Leave the loop and task prompts out of a project's knowledge — they are operat
 
 **Finish Phase 9.** T29 has been run on the bench; after final assembly, a full validation round re-runs T22, T23 and T29 (criteria 61–83) and records all three in VALIDATION.md. A 240 fps camera is needed for 64, 65, 66 and 71. Confirm the two-LED ceiling (78) by observation across a full session, and check brightness uniformity through the finished panel from standing height before settling the series resistor.
 
-**Test the 9 V front-end, then order the cape.** If Bluetooth is at all likely, **fit a Pico 2 W instead of a Pico 2** — identical footprint and pinout, every pin this design uses is available on it, and it makes the radio a firmware question rather than a board respin. GP25 is already unused here.
+**Test the 9 V front-end, then order the cape — with a Pico 2 W fitted.** Decided 2026-10-31. Confirm the Pico 2 W's antenna end sits over the ground-pour keep-out with no harness or standoff crossing it (PRD §11.6).
 
 **iSerial firmware version.** Small, independent, testable, touches only §9.1. Worth doing on its own ahead of anything larger.
 
-**Bluetooth (v3).** Bigger than Phase 9 and not purely additive:
-- `pico_cyw43_arch` and a Bluetooth stack are new dependencies — BLOCKER-grade under `AGENTS.md`, whose hard-stop list still names Bluetooth explicitly and must be amended deliberately.
-- **§5.1's security posture does not survive a discoverable, pairable radio.** "Plug in a cable, get a MIDI endpoint and nothing else" needs a decision, not silence.
-- The 9 V input stops being optional — without USB there is no power.
-- The layer separation already accommodates it: the sequencer emits `Command` and something downstream sends it, so a BLE transport slots in beside the USB one with `input`, `sequencer` and `ui` untouched. Whether both transports run at once is a PRD decision.
-- **Verify Playback supports BLE MIDI on the target platform first**, using any borrowed BLE MIDI source. Native on iOS and macOS, historically poor on Windows. Latency and dropout behaviour on a floor, with a body in the path and a congested 2.4 GHz band, is the question that actually decides this.
+**Phase 10 — BLE MIDI.** Scoped in `TASK-LIST.md` as T30–T39; see `CURSOR-GUIDE-PHASE10.md` for the run order. Before any code: confirm Playback receives BLE MIDI on the Mac and through the iPad middleware using any BLE MIDI source, and check the SDK has its `lib/btstack` and `lib/cyw43-driver` submodules.
 
-**Deferred.** Display (now v3 — would need I2C moved to GP0/GP1), expression pedal input, runtime-editable cue mappings, preset banks, MIDI channels 11–16.
+**Deferred.** Display (not planned — would need I2C moved to GP0/GP1), WiFi, expression pedal input, runtime-editable cue mappings, preset banks, MIDI channels 11–16.
 
 ---
 
@@ -134,7 +145,9 @@ Leave the loop and task prompts out of a project's knowledge — they are operat
 - **`docs/VALIDATION.md` is empty.** T22, T23 and T29 were run; the results exist only in memory until the post-assembly validation round records them.
 - **Criterion 34 is claimed by no task.** Walking the `Covers:` lines across T04–T21, every criterion is accounted for except 34 ("enter setup, select nothing, tap 6+9 → exits normally, no flash write"). The behaviour is almost certainly present via T09 and T19, but nothing asserts it. It is a cheap host test and exactly the kind of thing that works in the state machine and breaks at the seam.
 - **D3 is mislabelled in KiCad.** The schematic and silkscreen read `SMAJ5.0A`, a surface-mount part, in a DO-41 through-hole footprint. The board is right; the label is not. Change it to `P6KE6.8A` before ordering.
-- **GP16 is unpopulated**, so criteria 41–56 cannot be verified on this revision. Not yet reflected in the PRD.
+- **GP16 is unpopulated**, so criteria 41–56 cannot be verified on this revision. Now recorded as a board-revision note in PRD §11.4.
+- **Series resistor value disagrees across docs.** PRD §11.5.2 specifies 220 Ω (measured on cape v1); this file's Hardware section and `VALIDATION.md`'s T29 block still say 100 Ω with an 82 Ω fallback. Settle it in the post-assembly validation round.
+- **BTstack licence** — confirm the Raspberry Pi terms in `$PICO_SDK_PATH/lib/btstack/LICENSE` before the device leaves the bench (PRD §4).
 - **PID is a placeholder.** `0xFFFE` under Raspberry Pi's VID. A real allocation needs a PR to `raspberrypi/usb-pid`. pid.codes is not an option — VID 0x1209 requires an open source license, which conflicts with §5.1.
 - **Tier 2 security hardening (PRD §5.2) is deliberately unimplemented.** OTP fuses, secure boot signing, and SWD lockdown are irreversible and will brick the board if done without a signed update path. Hard stop in `AGENTS.md`.
 - **CI runs every job twice** on PR branches, because `ci.yml` triggers on both `push` and `pull_request`. Harmless; fix by narrowing the push trigger to `master`.

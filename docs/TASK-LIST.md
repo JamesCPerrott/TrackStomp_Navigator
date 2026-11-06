@@ -44,8 +44,8 @@ After each task, append a dated entry to `PROGRESS.md`: task ID, what was done, 
 **Out of scope. Do not implement, do not research, do not prepare for:**
 
 - **PRD §5.2 Tier 2 hardening.** No OTP fuse operations. No secure boot signing. No disabling of the UF2 bootloader or SWD debug. These operations are **irreversible and will permanently brick the board**. If any task appears to require them, stop and ask. Tier 1 (§5.1) is fully in scope and is the whole of the security work for v1.
-- Display / I2C driver. **Superseded by PRD §11.5** — GP4/GP5 now carry status LEDs. A display is a v3 item and is out of scope.
-- Bluetooth, WiFi, BLE MIDI (v3).
+- Display / I2C driver. **Superseded by PRD §11.5** — GP4/GP5 now carry status LEDs. A display is not planned (PRD §16).
+- WiFi, network MIDI, Bluetooth Classic, and any BLE service other than BLE-MIDI. **BLE MIDI itself is in scope from Phase 10 (T30–T39) only**, exactly as PRD §5.4 and §9.3 define it.
 - Expression pedal / ADC input.
 - Runtime-editable cue mappings, preset banks.
 - MIDI channels 11–16.
@@ -472,6 +472,174 @@ Added after v1 was merged. Implements PRD §11.5. **Read §11.5 in full before s
 - **Done when:** `VALIDATION.md` records pass/fail for criteria 61–83 with the date and firmware commit. A 240 fps camera is needed for 64, 65, 66, and 71. Confirm the two-LED ceiling of criterion 78 by observation across a full session, confirm brightness uniformity through the finished panel from standing height, and re-run criteria 41–56 to confirm the panel LED is genuinely unaffected.
 
   **Measure the LED series resistor on the bench before finalising it.** §11.5.2 sizes 100 Ω against a 3.6 V nominal forward voltage with under a volt of headroom, so the real value depends on the parts in hand and on how the finished panel reads on a dark stage.
+
+---
+
+# Phase 10 — BLE MIDI on the Pico 2 W
+
+Implements PRD §5.4, §7.5, §8.5, §9.3, §9.4, §10.1 (flash map), §11.1 (Pico 2 W pins), §11.5.8, §11.6 and §11.7. **Read §5.4, §7.5, §9.3, §9.4 and §10.1 in full before starting T30.** The security posture in §5.4 constrains T38, the flash map in §10.1 constrains T31 and T38, and the "USB wins" rule in §9.4 is what stops every cue firing twice.
+
+## Scope boundary for this phase
+
+**`input`, `sequencer`, and `ui` stay board-independent.** No `cyw43_*`, BTstack, or TinyUSB call appears in them. BTstack headers are included by `src/midi/ble_midi.cpp` and nothing else.
+
+**The `UiEvent` contract does not change**, for the same reason as Phase 9: T08–T13 assert ordered `UiEvent` lists. `ui` learns Bluetooth state by polling `link_state` accessors (QUESTIONS Q032).
+
+**`ButtonEventKind` gains exactly one value, `PairChordHold`.** It is emitted only while setup is active, so no existing ordered `ButtonEvent` assertion can see it. No other change to `ButtonEvent`.
+
+**The §11.4 panel engine is finished work**, unchanged since Phase 9. T30 changes only the *driver shim* for the onboard mirror (GP25 → CYW43 LED on `pico2_w`); `ui_lamp()`, its engine, and its tests are untouched. **Criteria 41–56 must pass at every commit.**
+
+**Both firmware targets build at every commit.** `pico2` (USB-only, existing CI job) and `pico2_w` (new CI job from T30). A task that breaks either is not complete. On `pico2` every Bluetooth path compiles out or reports "no radio", and behaviour is exactly v1 + Phase 9.
+
+**New dependencies approved for this phase, `pico2_w` only:** `pico_cyw43_arch_poll`, `pico_btstack_ble`, `pico_btstack_cyw43`, `pico_btstack_make_gatt_header()`. Nothing else. `pico_btstack_classic`, any `lwip` variant, `pico_cyw43_arch_threadsafe_background`, and any FreeRTOS variant are BLOCKERs.
+
+**Never name GP23, GP24, GP25, or GP29 in `pico2_w` code.** They belong to the radio (PRD §11.1).
+
+**Branching.** T30 branches from `master` once the Phase 10 docs are merged. T31 onward stack normally, each from its predecessor's branch.
+
+## Bootstrap — interactive, before the loop
+
+| Task | Why not the loop |
+|---|---|
+| **T30** | Board bring-up is environment-specific (SDK submodules for BTstack and cyw43-driver, a new preset, a new CI job), and the GP25 fix is only provable on a real Pico 2 W. A silent failure here — the radio never initialising — poisons every later task. |
+| **T31** | The flash map is the one place a mistake destroys data on units already in use: move the config sector and every pedal loses its channel; overlap the bond store and pairing corrupts config. RP2350-E10 must be read and judged by a person. |
+| **T32** | The link harness is the loop's only feedback signal for T34–T37, and its API shape constrains all of them. It carries T03's and T25's risk: **a harness whose assertions cannot fail reports green for every task after it.** |
+
+The loop runs **T33–T37**. **T38** (the BTstack transport itself) is also interactive — it implements the §5.4 security posture and cannot be verified without a radio. **T39** is hardware.
+
+The loop must refuse to start until T30–T32 are complete, logged in `PROGRESS.md`, and `ctest` is green.
+
+### T30 — pico2w-board-target
+- **Branch:** `task/T30-pico2w-board-target`
+- **Commit:** `T30: add pico2_w build target and move the onboard LED mirror to the CYW43`
+- **Depends on:** — (branch from `master`)
+- **Mode:** **interactive — human-led, not the loop**
+- **PRD:** §4, §11.1, §11.2, §12, §12.2
+- **Verify:** build + hardware
+- **Covers:** 111 (partial), 102
+- **Done when:**
+  - `CMakePresets.json` gains a `pico2_w` configure preset building into `build-w`, with `PICO_BOARD=pico2_w`. The existing `pico2` preset and `build/` are unchanged. `CMakeLists.txt` keeps `set(PICO_BOARD pico2)` as the default for the `pico2` path only — **confirm a `pico2_w` configure actually reports `pico2_w`**, since T01 deliberately pinned the board inside `CMakeLists.txt`.
+  - `.github/workflows/ci.yml` gains a **Firmware build (pico2_w)** job beside the existing two. `AGENTS.md` lists the new commands (already amended in the Phase 10 docs commit).
+  - On `pico2_w` only: `pico_cyw43_arch_poll` is linked, `cyw43_arch_init()` runs at boot, and `cyw43_arch_poll()` runs every main-loop iteration immediately after `tud_task()`. No BTstack yet.
+  - A new `src/board/board_led.h/.cpp` shim owns the onboard LED: GP25 on `pico2`, `cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, …)` on `pico2_w`, **written only when the value changes**. T17's GP25 write moves into this shim; GP16 handling is untouched. `ui_lamp()` and its engine are not edited.
+  - No `gpio_*` call in `src/` can receive 23, 24, 25, or 29 on `pico2_w`, and nothing uses `PICO_DEFAULT_LED_PIN` (the `pico2_w` board header does not define it). Prove it with a grep over `gpio_` call sites plus a `static_assert` in `board_led.cpp`, and paste the grep and its output into `PROGRESS.md`. Note numbers 23 and 25 exist in the cue table, so a bare number grep is not evidence.
+  - Before starting, confirm `$PICO_SDK_PATH/lib/btstack/src/bluetooth.h` and `$PICO_SDK_PATH/lib/cyw43-driver/src/cyw43.h` exist. If they do not, **stop** — initialising SDK submodules is the human's job (AGENTS.md: never modify anything under `$PICO_SDK_PATH`).
+  - **On hardware:** a Pico 2 W running this build enumerates exactly as criteria 1 and 2, the per-switch LEDs and buttons behave as on the Pico 2, and the onboard LED mirrors the panel engine through a Setup Mode entry, channel blink and exit.
+
+### T31 — flash-map
+- **Branch:** `task/T31-flash-map`
+- **Commit:** `T31: reserve the bond store and pin the config sector to a fixed offset`
+- **Depends on:** T30
+- **Mode:** **interactive — human-led, not the loop**
+- **PRD:** §10.1, §10.3, §13
+- **Verify:** host + build + hardware
+- **Covers:** 114
+- **Done when:**
+  - `config.h` gains the §13 flash-map constants. Static assertions prove: the three regions are sector-aligned, contiguous, non-overlapping, and end exactly at `FLASH_TOTAL_BYTES`; `CONFIG_FLASH_OFFSET == 0x3FF000`; `BOND_FLASH_OFFSET == 0x3FD000`.
+  - `config_store` addresses its sector by `CONFIG_FLASH_OFFSET`, **not** by `PICO_FLASH_SIZE_BYTES` (QUESTIONS Q016 is superseded for addressing; record that in `PROGRESS.md`).
+  - The linker image region is shrunk to `IMAGE_FLASH_LIMIT` (via `pico_override_flash_size` or the mechanism Q016 established). `PICO_FLASH_BANK_STORAGE_OFFSET` and `PICO_FLASH_BANK_TOTAL_SIZE` are set as compile definitions for `pico2_w` from the same constants, and a static assertion in a `pico2_w`-only translation unit ties them to `config.h`.
+  - Host tests: the existing T18/T19 config tests still pass unchanged; a new test asserts the map.
+  - **RP2350-E10 is read and recorded.** `PROGRESS.md` quotes the datasheet's E10 entry and states whether a single-family UF2 drag-and-drop can write the last sector. If it can, raise a BLOCKER and stop (PRD §10.1).
+  - The `.elf`'s highest loaded address is below `IMAGE_FLASH_LIMIT` on both targets (`arm-none-eabi-size -A` or `readelf -l`; record the figure).
+  - **On hardware:** criterion 114 — a unit holding channel 8 under the current `master` firmware boots on channel 8 after flashing this build.
+
+### T32 — link-harness
+- **Branch:** `task/T32-link-harness`
+- **Commit:** `T32: add the link state module skeleton and extend the harness with link and transport capture`
+- **Depends on:** T31
+- **Mode:** **interactive — human-led, not the loop**
+- **PRD:** §7.5, §8.5, §9.4, §12.1
+- **Verify:** host
+- **Covers:** —
+- **Done when:**
+  - `src/link/link_state.h/.cpp` exists, pure and host-buildable, declaring `LinkEvent`, `LinkRequest`, `link_tick(now)`, `link_on_event()`, `link_poll_request()`, and the read-only accessors listed in `TEST-HARNESS.md`. For this task the behaviour may be stubbed (window never opens, BLE never ready).
+  - `src/midi/transport.h` declares `Transport` and the §9.4 policy function; `midi_out` exposes a host seam so the harness can capture `TransportSend { transport, note }`. Behaviour may be stubbed (always USB).
+  - The harness pipeline runs `link_tick` and the link half of `loop_dispatch` each pass, with a **fake transport**: `harness_set_usb_mounted()`, `harness_link_event()`, `REQUIRE_LINK_REQUESTS()`, `REQUIRE_TRANSPORT_SENDS()`, and the rest of the Phase 10 section of `TEST-HARNESS.md`. Document every function there with a signature and one example each, and add one exemplar test, `tests/test_link.cpp`.
+  - **Negative control.** Write a test asserting a deliberately wrong `LinkRequest` list and a deliberately wrong `TransportSend`; confirm each fails with `file:line`; correct them. `PROGRESS.md` must say so in words — the loop prompt checks for it.
+  - `harness_lamp_trace()`, `harness_switch_trace()`, and every existing matcher are unchanged; the full suite is green including T10–T13.
+
+## Loop tasks
+
+### T33 — ble-midi-packet
+- **Branch:** `task/T33-ble-midi-packet`
+- **Commit:** `T33: add the BLE-MIDI packet encoder`
+- **Depends on:** T32
+- **PRD:** §9.3.2
+- **Verify:** host
+- **Covers:** 99
+- **Done when:** A pure function in `src/midi/ble_midi_packet.h/.cpp` encodes one Note On (and, behind `SEND_NOTE_OFF`, one Note Off) into the five-byte §9.3.2 layout from `(note, channel, now_ms)`. Tests cover the two worked examples in criterion 99, the 13-bit wrap at 0x2000, channels 1 and 10, and every note 0–32 from `CUE_TABLE`. Bit 7 is set on header and timestamp bytes for every input, and a test asserts it across a sweep of timestamps. No BTstack include.
+
+### T34 — transport-arbitration
+- **Branch:** `task/T34-transport-arbitration`
+- **Commit:** `T34: route each cue to exactly one transport with USB taking priority`
+- **Depends on:** T33
+- **PRD:** §9, §9.4
+- **Verify:** host
+- **Covers:** 97, 98 (transport half)
+- **Done when:** The §9.4 table is the `transport` policy function, and `midi_out` calls it **per cue**. Tests drive `harness_set_usb_mounted()` and a ready/not-ready link through all four combinations, toggle USB between two cues of one sequence, and assert with `REQUIRE_TRANSPORT_SENDS` that every cue appears exactly once or not at all. Nothing is sent in `SETUP` or `LOCKED`. The USB path is byte-for-byte what T16 sends; the BLE path hands the T33 encoder's output to the transport seam. Existing `Command` captures are unchanged.
+
+### T35 — pair-chord-detection
+- **Branch:** `task/T35-pair-chord-detection`
+- **Commit:** `T35: detect the 2+4 pair chord in setup with a strict continuous hold timer`
+- **Depends on:** T34
+- **PRD:** §7.5, §6.5 (rules reused)
+- **Verify:** host
+- **Covers:** 84, 85, 86, 87
+- **Done when:** While setup is active, `input` applies the §6.5 rules to buttons `PAIR_CHORD_BUTTON_A` and `_B`: any overlap flags both `pair_overlap` and suppresses their taps; the timer starts at the second press, needs `PAIR_CHORD_HOLD_MS` of continuous overlap, is cleared on any release, and restarts in full on re-form; at the threshold one `ButtonEventKind::PairChordHold` is emitted. The sequencer turns it into one `BEGIN_PAIRING` request through its link-request drain. **Outside setup nothing changes** — criterion 86 is the guard, and all of T05–T09's tests must still pass. A contact bounce on 2 or 4 must not clear the timer (mirror the T06 bounce test).
+
+  Write 86 first. The most likely defect is a pair chord that leaks into performance mode and swallows Select (note 28).
+
+### T36 — pairing-window
+- **Branch:** `task/T36-pairing-window`
+- **Commit:** `T36: implement the pairing window with suspended setup timeout and ignored taps`
+- **Depends on:** T35
+- **PRD:** §7.5, §8.5
+- **Verify:** host
+- **Covers:** 88, 90, 91, 92, 93, 94, 98 (window half)
+- **Done when:** `link_state` owns the window: `BEGIN_PAIRING` opens it (and issues the bond-clear + advertise request to the transport), `PAIRING_WINDOW_MS` closes it with `END_PAIRING`, `LinkEvent` *pairing started / succeeded / failed* drive the sub-state, and a second `BEGIN_PAIRING` restarts it. The sequencer polls `link_pairing_window_open()`: taps select nothing, the inactivity timeout is suspended and restarts from the window-closed edge, and setup exit issues `END_PAIRING` first. Every criterion in the list has a test that brackets its threshold (`− 1` / exact), and criterion 93 asserts the §7.3 flash-write rule is unchanged (`config_store_host_write_count`).
+
+### T37 — switch-led-link-indications
+- **Branch:** `task/T37-switch-led-link-indications`
+- **Commit:** `T37: add pairing and boot link indications to the switch LEDs`
+- **Depends on:** T36
+- **PRD:** §11.5.3, §11.5.8
+- **Verify:** host
+- **Covers:** 89, 95, 96, 100
+- **Done when:** The per-switch engine gains priority 0 (pairing window: advertising 500/500, bonding 100/100, bond OK solid 2000 ms, all on LEDs 2 and 4 in phase) and the boot link confirmation at priority 4 (one 1000 ms flash on 2 and 4, waiting for the boot channel indication, cancelled or dropped by an accepted press, at most once per power cycle, only within `BOOT_CONNECT_WINDOW_MS`). State comes from `link_state` accessors only — **no new `UiEventKind`**. After bond OK or window timeout the setup channel LED resumes from its on phase. Every test asserts `harness_switch_led_count() <= 2`. Both edges of every phase are asserted. Criteria 61–82 still pass.
+
+## Interactive — after the loop
+
+### T38 — ble-midi-transport
+- **Branch:** `task/T38-ble-midi-transport`
+- **Commit:** `T38: add the BTstack BLE-MIDI GATT server with pairing-window security policy`
+- **Depends on:** T37
+- **Mode:** **interactive — human-led, not the loop**
+- **PRD:** §5.4, §9.3, §10.1, §10.3, §12.2
+- **Verify:** build + hardware
+- **Covers:** enables 103–113 (verified in T39)
+- **Done when:**
+  - `pico2_w` links `pico_btstack_ble` and `pico_btstack_cyw43`. `src/midi/btstack_config.h` enables BLE only, LE Secure Connections, `NVM_NUM_DEVICE_DB_ENTRIES = BLE_MAX_BONDS`, and routes BTstack logging to UART only under `DEBUG_UART` (off in release).
+  - `src/midi/trackstomp.gatt`, compiled with `pico_btstack_make_gatt_header()`, contains GAP (name `TrackStomp Navigator`), GATT, and the BLE-MIDI service with its one characteristic marked as requiring encryption. **Nothing else.** A host-side or build-time check fails if any other service UUID appears in the generated header.
+  - `src/midi/ble_midi.cpp` is the only file including BTstack. It implements the §9.3.3 advertising table, the §9.3.4 Security Manager policy (confirm Just Works only while the window is open; decline otherwise), the `BLE_UNBONDED_DROP_MS` drop, the connection-interval request, read-empty / write-discard, notifications from the T33 encoder, bond clear on `BEGIN_PAIRING`, and translation of BTstack events to `LinkEvent` (*ready* only when encrypted with the bond **and** subscribed).
+  - On `pico2`, a stub transport reports "no radio" so the window closes immediately (PRD §7.5).
+  - An instrumented debug build counts flash-bank erases and programs (criterion 112's tool).
+  - **Quick hardware smoke test before handing to T39:** pair from a Mac, see Note On in a MIDI monitor, power-cycle, confirm reconnect. Record it in `PROGRESS.md`.
+
+## Hardware validation
+
+### T39 — ble-bench
+- **Branch:** `task/T39-ble-bench`
+- **Commit:** `T39: record BLE MIDI bench validation results`
+- **Depends on:** T38, and the post-assembly validation round (T22, T23, T29)
+- **Verify:** hardware
+- **Covers:** 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114
+- **Done when:** `VALIDATION.md` records pass/fail for criteria 102–114 with the date, `git describe`, and artifact SHA-256 of the `pico2_w` `.uf2`, the Mac and iPad OS versions, the Playback version, and the iPad middleware used. Run 110 in the sealed enclosure, standing on it, before deciding anything about shielding (PRD §11.6). Run 108 with the connection interval each host actually granted recorded beside the result.
+
+---
+
+## Loop exit condition — Phase 10
+
+Phase 10's automated portion is done when **T33–T37 are committed and pushed, `ctest` is green covering criteria 84–101, criteria 4–82 still pass, and both `pico2` and `pico2_w` firmware builds succeed.** T38 is interactive and T39 is hardware. Do not attempt them.
 
 ---
 
