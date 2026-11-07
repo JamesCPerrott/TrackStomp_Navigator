@@ -577,7 +577,7 @@ The RP2350 has no EEPROM. Configuration is stored in a reserved flash sector usi
 
 ### 10.1 Layout
 
-- Reserve the **last 4 KB sector** of on-board flash for the config record. Exclude it from the linker's image region so a firmware update does not clobber it. **Its physical location never moves** — units in the field keep their channel across the Phase 10 upgrade (criterion 114).
+- Reserve the **last 4 KB sector** of on-board flash for the config record. Exclude it from the linker's image region so a firmware update does not clobber it. **Its physical location never moves** (criterion 114).
 
 **Flash map (Phase 10).** Both boards carry 4 MB.
 
@@ -589,7 +589,9 @@ The RP2350 has no EEPROM. Configuration is stored in a reserved flash sector usi
 
 - `CONFIG_FLASH_OFFSET`, `BOND_FLASH_OFFSET`, `BOND_FLASH_SIZE`, and `IMAGE_FLASH_LIMIT` are constants in `config.h` (§13). `PICO_FLASH_BANK_STORAGE_OFFSET` and `PICO_FLASH_BANK_TOTAL_SIZE` are passed to the SDK as compile definitions **from the same values**, and a static assertion ties them together.
 - **The SDK's default bond-store offset must not be relied on.** On RP2350 boards with A2 support (the `pico2_w` board header enables it) BTstack defaults to `PICO_FLASH_SIZE_BYTES − 4 KB − 8 KB`, deliberately keeping the last sector free for the RP2350-E10 workaround. v1 shrinks `PICO_FLASH_SIZE_BYTES` by one sector (QUESTIONS Q016), so the default would silently land somewhere else. Set it explicitly.
-- **`config_store` must address its sector by `CONFIG_FLASH_OFFSET`, not by `PICO_FLASH_SIZE_BYTES`.** v1 derives the address from the overridden flash size (Q016). Shrinking the image region to make room for the bond store would otherwise move the config sector, and every unit would lose its channel on upgrade.
+- **`config_store` must address its sector by `CONFIG_FLASH_OFFSET`, not by `PICO_FLASH_SIZE_BYTES`.** v1 derives the address from the overridden flash size (Q016). Shrinking the image region to make room for the bond store would otherwise move the config sector.
+- **Never shrink the image with `pico_override_flash_size`.** Besides shortening the linker `FLASH` region, it redefines `PICO_FLASH_SIZE_BYTES` for the whole target, and `flash_range_erase()` / `flash_range_program()` begin with `hard_assert(flash_offs + count <= PICO_FLASH_SIZE_BYTES)`. v1 did exactly this (Q016), so **every config write panicked in release builds**: the pedal froze on setup exit and nothing was saved. Found on the bench 2026-11-07, on both boards, at T28 and T30. Criteria 36 and 38 had never been run on hardware, which is how it shipped in v1.0 and v1.1. **`PICO_FLASH_SIZE_BYTES` stays at the true 4 MB.** Only the linker `FLASH` region is shortened, to `IMAGE_FLASH_LIMIT`, by a project `pico_flash_region.ld` supplied through `pico_add_linker_script_override_path` with no compile definition. A static check on the target asserts `CONFIG_FLASH_OFFSET + FLASH_SECTOR_BYTES <= PICO_FLASH_SIZE_BYTES` and the same for the bond region.
+- **No unit has ever stored a channel**, because of the defect above, so there is no field data to migrate. The fixed location still matters from T31 onward.
 - **RP2350-E10.** The SDK keeps the last sector free on A2 silicon for an erratum workaround; v1 already stores config there. T31 must read the E10 entry in the RP2350 datasheet and confirm that a single-family UF2 drag-and-drop cannot touch the last sector. If it can, that is a BLOCKER — the config sector would have to move, which is a migration, not a task detail.
 - The plain `pico2` build uses the same map, with the bond region simply unused.
 - Record format:
@@ -1271,7 +1273,7 @@ constexpr uint32_t BLE_MIDI_TIMESTAMP_MASK = 0x1FFF;  // 13-bit ms timestamp
 111. *(hardware)* The onboard LED (WL_GPIO0) mirrors the panel engine. A review of every `gpio_*` call site in the `pico2_w` build finds none that can receive 23, 24, 25, or 29 (T30's recorded grep).
 112. *(hardware)* Instrumented debug build: zero flash erases or programs during a 10-minute cue session and across five reconnects of the bonded host. Writes occur only on bond and on the pair chord.
 113. *(hardware)* 9 V only, no USB: unit boots, reconnects to its host, and plays. USB only, no 9 V: unchanged from v1.
-114. *(hardware)* Flash a unit holding channel 8 under v1 firmware with the Phase 10 firmware → it still boots on channel 8. The config sector did not move.
+114. *(hardware)* On both boards, with the T31 build or later: select channel 8 and exit setup → the pedal keeps playing on channel 8 (no freeze). Power-cycle → boots on channel 8 (criterion 36). Reflash with a later build → still channel 8. Repeat the change via the 30 s timeout (criterion 38).
 
 Criteria are numbered by topic; 89 sits with the indication criteria by design.
 
