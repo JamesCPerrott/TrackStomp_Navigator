@@ -100,11 +100,11 @@ Paste:
 
 **Check yourself:**
 - Read the E10 text the agent quotes. If it says the last sector can be written during drag-and-drop, stop the phase. Moving the config sector is a migration, not a task detail.
-- Run the upgrade test for criterion 114 on the Pico 2 W:
-  1. Flash the **T30** `pico2_w` build, which still uses the old addressing.
-  2. Set channel 8 in Setup Mode.
-  3. Flash the **T31** build.
-  4. Confirm the boot indication shows channel 8.
+- Run criterion 114 on both boards with the **T31** build:
+  1. Set channel 8 in Setup Mode and exit with 6+9. The pedal must keep playing, with cues on channel 8. Before T31 it froze here.
+  2. Power-cycle. It should boot on channel 8.
+  3. Reflash the same or a later build. It should still be on channel 8.
+  4. Change the channel again and let the 30 s timeout exit. It should not freeze.
 - The full `ctest` suite is still green, including the T18 and T19 config tests, unchanged.
 
 ### T32 — link-harness
@@ -183,7 +183,8 @@ Merge the stack in order, T30 through T39, when you are satisfied. Tagging is yo
 | `pico2_w` configure fails on BTstack or cyw43 | The SDK submodules are missing (Step 0.3), or CI's SDK checkout is shallow |
 | `pico2_w` build reports board `pico2` | `CMakeLists.txt` still forces `PICO_BOARD` (T30's first question) |
 | Pico 2 W hangs or the radio never starts | Something still drives GP25, or `cyw43_arch_init()` failed. Check with a `DEBUG_UART` build |
-| Channel lost after flashing the Phase 10 build | The config sector moved. T31 regression; criterion 114 |
+| Pedal freezes on setup exit after a channel change | `pico_override_flash_size` is back, or `PICO_FLASH_SIZE_BYTES` is below 4 MB (PRD §10.1) |
+| Channel lost after flashing a later build | The config sector moved. T31 regression; criterion 114 |
 | Mac shows the old name or won't reconnect after re-pairing | Clear the stale entry in Audio MIDI Setup and use "Forget" in Bluetooth settings |
 | iPad pairs, then can't reconnect | The pedal's bond was cleared by a later 2+4 chord. Forget the device on the iPad and re-pair inside a window |
 | A phone can't pair at all | Working as designed outside the pairing window (PRD §5.4) |

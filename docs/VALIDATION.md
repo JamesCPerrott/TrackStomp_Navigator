@@ -263,7 +263,7 @@ in the sealed enclosure, standing on it, **before** deciding anything about shie
 | 111 | Onboard LED (WL_GPIO0) mirrors the panel engine; no GP23/24/25/29 use | | |
 | 112 | Zero flash writes during play and across five reconnects | | Instrumented build commit: |
 | 113 | 9 V only works; USB only unchanged | | |
-| 114 | Channel 8 survives the upgrade to Phase 10 firmware | | |
+| 114 | Channel change saves without freezing; survives power cycle and reflash (both boards, T31+) | | v1.0/v1.1 froze on every config write — PRD §10.1 |
 
 **Range (criterion 110)** — sealed enclosure on the floor, operator standing on it.
 
