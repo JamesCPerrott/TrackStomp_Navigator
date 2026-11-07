@@ -4,7 +4,7 @@
 **Receiving software:** MultiTracks Playback on **macOS and iPad only** (MIDI cues are fire-and-forget)
 **Scope:** 10 momentary footswitches, USB class-compliant MIDI output, **BLE MIDI output (Phase 10, §9.3)**, user-selectable MIDI channel with persistence, ten per-switch status LEDs (§11.5), no display.
 
-**Revision history.** v1 (T01–T21) — USB MIDI. Phase 9 (T24–T29) — per-switch status LEDs, §11.5. **Phase 10 (T30–T39) — BLE MIDI on the Pico 2 W:** §2, §3, §4, §5.4, §7.5, §8.5, §9.3–§9.4, §10.1, §10.3, §11.1, §11.4 (board note), §11.5.3, §11.5.8, §11.6, §11.7, §12, §13, §14 (84–114), §15 (18–31), §16. A display is not planned (§16).
+**Revision history.** v1 (T01–T21) — USB MIDI. Phase 9 (T24–T29) — per-switch status LEDs, §11.5. **Phase 10 (T30–T39) — BLE MIDI on the Pico 2 W:** §2, §3, §4, §5.4, §7.5, §8.5, §9.3–§9.4, §10.1, §10.3, §11.1, §11.4 (board note), §11.5.3, §11.5.8, §11.6, §11.7, §12, §13, §14 (84–114), §15 (18–32), §16. A display is not planned (§16).
 
 ---
 
@@ -577,22 +577,23 @@ The RP2350 has no EEPROM. Configuration is stored in a reserved flash sector usi
 
 ### 10.1 Layout
 
-- Reserve the **last 4 KB sector** of on-board flash for the config record. Exclude it from the linker's image region so a firmware update does not clobber it. **Its physical location never moves** (criterion 114).
+- Reserve one **4 KB sector at the fixed offset `0x3FC000`** for the config record, directly below the bond store. Exclude it from the linker's image region so a firmware update does not clobber it. **Its physical location never moves from T31 onward** (criterion 114). The last sector, `0x3FF000`, holds nothing (RP2350-E10, below).
 
 **Flash map (Phase 10).** Both boards carry 4 MB.
 
 | Region | Offset | Size | Owner |
 |---|---|---|---|
-| Firmware image (linker `FLASH` region) | `0x000000` | 4 MB − 12 KB | linker |
+| Firmware image (linker `FLASH` region) | `0x000000` | 4 MB − 16 KB | linker |
+| Config record | `0x3FC000` | 4 KB (1 sector) | `config_store` |
 | Bluetooth bond store (BTstack flash bank) | `0x3FD000` | 8 KB (2 sectors) | BTstack, via `pico_btstack_flash_bank` |
-| Config record | `0x3FF000` | 4 KB (1 sector) | `config_store` |
+| E10 reserve | `0x3FF000` | 4 KB (1 sector) | nobody; an A2 bootrom erases it on every UF2 drag-and-drop |
 
-- `CONFIG_FLASH_OFFSET`, `BOND_FLASH_OFFSET`, `BOND_FLASH_SIZE`, and `IMAGE_FLASH_LIMIT` are constants in `config.h` (§13). `PICO_FLASH_BANK_STORAGE_OFFSET` and `PICO_FLASH_BANK_TOTAL_SIZE` are passed to the SDK as compile definitions **from the same values**, and a static assertion ties them together.
-- **The SDK's default bond-store offset must not be relied on.** On RP2350 boards with A2 support (the `pico2_w` board header enables it) BTstack defaults to `PICO_FLASH_SIZE_BYTES − 4 KB − 8 KB`, deliberately keeping the last sector free for the RP2350-E10 workaround. v1 shrinks `PICO_FLASH_SIZE_BYTES` by one sector (QUESTIONS Q016), so the default would silently land somewhere else. Set it explicitly.
+- `FLASH_E10_RESERVED_OFFSET`, `BOND_FLASH_OFFSET`, `BOND_FLASH_SIZE`, `CONFIG_FLASH_OFFSET`, and `IMAGE_FLASH_LIMIT` are constants in `config.h` (§13). `PICO_FLASH_BANK_STORAGE_OFFSET` and `PICO_FLASH_BANK_TOTAL_SIZE` are passed to the SDK as compile definitions **from the same values**, and a static assertion ties them together.
+- **The SDK's default bond-store offset must not be relied on.** On RP2350 boards with A2 support (the `pico2_w` board header enables it) BTstack defaults to `PICO_FLASH_SIZE_BYTES − 4 KB − 8 KB`, deliberately keeping the last sector free for the RP2350-E10 workaround. With `PICO_FLASH_SIZE_BYTES` at the true 4 MB that default is `0x3FD000` and matches the map, but v1's flash-size override (QUESTIONS Q016) showed how easily it moves. Set it explicitly.
 - **`config_store` must address its sector by `CONFIG_FLASH_OFFSET`, not by `PICO_FLASH_SIZE_BYTES`.** v1 derives the address from the overridden flash size (Q016). Shrinking the image region to make room for the bond store would otherwise move the config sector.
 - **Never shrink the image with `pico_override_flash_size`.** Besides shortening the linker `FLASH` region, it redefines `PICO_FLASH_SIZE_BYTES` for the whole target, and `flash_range_erase()` / `flash_range_program()` begin with `hard_assert(flash_offs + count <= PICO_FLASH_SIZE_BYTES)`. v1 did exactly this (Q016), so **every config write panicked in release builds**: the pedal froze on setup exit and nothing was saved. Found on the bench 2026-11-07, on both boards, at T28 and T30. Criteria 36 and 38 had never been run on hardware, which is how it shipped in v1.0 and v1.1. **`PICO_FLASH_SIZE_BYTES` stays at the true 4 MB.** Only the linker `FLASH` region is shortened, to `IMAGE_FLASH_LIMIT`, by a project `pico_flash_region.ld` supplied through `pico_add_linker_script_override_path` with no compile definition. A static check on the target asserts `CONFIG_FLASH_OFFSET + FLASH_SECTOR_BYTES <= PICO_FLASH_SIZE_BYTES` and the same for the bond region.
-- **No unit has ever stored a channel**, because of the defect above, so there is no field data to migrate. The fixed location still matters from T31 onward.
-- **RP2350-E10.** The SDK keeps the last sector free on A2 silicon for an erratum workaround; v1 already stores config there. T31 must read the E10 entry in the RP2350 datasheet and confirm that a single-family UF2 drag-and-drop cannot touch the last sector. If it can, that is a BLOCKER — the config sector would have to move, which is a migration, not a task detail.
+- **No unit has ever stored a channel**, because of the defect above, so there is no field data to migrate. That is why T31 could move the config sector out of the last sector at no cost. The fixed location matters from T31 onward.
+- **RP2350-E10 (resolved in T31, 2026-11-07; §15 row 32).** Both board headers set `PICO_RP2350_A2_SUPPORTED`, so the SDK passes `--abs-block` to picotool and every UF2 carries an absolute-family block aimed at the end of flash (`0x10FFFF00`, marked `UF2_EXTENSION_RP2_IGNORE_BLOCK`). A3 and later bootroms ignore it. **An A2 bootrom writes it, which erases the last 4 KB sector on every drag-and-drop update.** v1 kept config there, so on A2 boards every update would have wiped it. The config sector therefore moved to `0x3FC000`. **Never store anything at `0x3FF000`**, and leave the SDK's `--abs-block` and `PICO_RP2350_A2_SUPPORTED` as they are.
 - The plain `pico2` build uses the same map, with the bond region simply unused.
 - Record format:
 
@@ -1100,10 +1101,11 @@ constexpr uint8_t  SWITCH_LED_DUTY[SWITCH_LED_COUNT] =
 // Flash map (§10.1). Both boards carry 4 MB.
 constexpr uint32_t FLASH_TOTAL_BYTES    = 4u * 1024u * 1024u;
 constexpr uint32_t FLASH_SECTOR_BYTES   = 4096u;
-constexpr uint32_t CONFIG_FLASH_OFFSET  = FLASH_TOTAL_BYTES - FLASH_SECTOR_BYTES;      // 0x3FF000, never moves
+constexpr uint32_t FLASH_E10_RESERVED_OFFSET = FLASH_TOTAL_BYTES - FLASH_SECTOR_BYTES;   // 0x3FF000, never written
 constexpr uint32_t BOND_FLASH_SIZE      = 2u * FLASH_SECTOR_BYTES;                     // 8 KB
-constexpr uint32_t BOND_FLASH_OFFSET    = CONFIG_FLASH_OFFSET - BOND_FLASH_SIZE;       // 0x3FD000
-constexpr uint32_t IMAGE_FLASH_LIMIT    = BOND_FLASH_OFFSET;                           // linker FLASH length
+constexpr uint32_t BOND_FLASH_OFFSET    = FLASH_E10_RESERVED_OFFSET - BOND_FLASH_SIZE; // 0x3FD000
+constexpr uint32_t CONFIG_FLASH_OFFSET  = BOND_FLASH_OFFSET - FLASH_SECTOR_BYTES;      // 0x3FC000, never moves
+constexpr uint32_t IMAGE_FLASH_LIMIT    = CONFIG_FLASH_OFFSET;                         // linker FLASH length
 
 // Bluetooth pairing (§7.5) and indications (§11.5.8)
 constexpr uint8_t  PAIR_CHORD_BUTTON_A  = 2;
@@ -1273,7 +1275,7 @@ constexpr uint32_t BLE_MIDI_TIMESTAMP_MASK = 0x1FFF;  // 13-bit ms timestamp
 111. *(hardware)* The onboard LED (WL_GPIO0) mirrors the panel engine. A review of every `gpio_*` call site in the `pico2_w` build finds none that can receive 23, 24, 25, or 29 (T30's recorded grep).
 112. *(hardware)* Instrumented debug build: zero flash erases or programs during a 10-minute cue session and across five reconnects of the bonded host. Writes occur only on bond and on the pair chord.
 113. *(hardware)* 9 V only, no USB: unit boots, reconnects to its host, and plays. USB only, no 9 V: unchanged from v1.
-114. *(hardware)* On both boards, with the T31 build or later: select channel 8 and exit setup → the pedal keeps playing on channel 8 (no freeze). Power-cycle → boots on channel 8 (criterion 36). Reflash with a later build → still channel 8. Repeat the change via the 30 s timeout (criterion 38).
+114. *(hardware)* On both boards, with the T31 build or later: select channel 8 and exit setup → the pedal keeps playing on channel 8 (no freeze). Power-cycle → boots on channel 8 (criterion 36). Reflash with a later build by UF2 drag-and-drop → still channel 8 (on A2 silicon this is the E10 check). Repeat the change via the 30 s timeout (criterion 38).
 
 Criteria are numbered by topic; 89 sits with the indication criteria by design.
 
@@ -1316,6 +1318,7 @@ Each was decided to unblock implementation. Flag any that are wrong.
 | 29 | Indicate later reconnects or disconnects? | **No.** Boot link flash only, once per power cycle, as specified. *Assumed — QUESTIONS Q031.* |
 | 30 | Does the panel LED (§11.4) show Bluetooth state? | **No.** It is unpopulated on cape v1 and its engine is finished work. |
 | 31 | How does `ui` learn Bluetooth state without changing `UiEvent`? | **By polling `link_state` accessors** — the Q009 pattern. *Assumed — QUESTIONS Q032.* |
+| 32 | Where does the config record live, given RP2350-E10? | **`0x3FC000`, below the bond store; the last sector stays empty.** An A2 bootrom erases the last sector on every drag-and-drop because of the SDK's `--abs-block`. No unit had ever saved a channel, so the move cost nothing. *Decided 2026-11-07 (T31).* |
 
 ---
 

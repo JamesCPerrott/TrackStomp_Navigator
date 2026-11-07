@@ -536,13 +536,13 @@ The loop must refuse to start until T30–T32 are complete, logged in `PROGRESS.
 - **Covers:** 114, and fixes the v1 defect behind 36 and 38 (PRD §10.1)
 - **Done when:**
   - **Fix the v1 config-write freeze first.** `pico_override_flash_size` (Q016) redefines `PICO_FLASH_SIZE_BYTES`, and `flash_range_erase/program` `hard_assert` against it, so every setup-exit write panics today. Record this in `PROGRESS.md` as a defect found in T18/T19 (Q016) and fixed here.
-  - `config.h` gains the §13 flash-map constants. Static assertions prove: the three regions are sector-aligned, contiguous, non-overlapping, and end exactly at `FLASH_TOTAL_BYTES`; `CONFIG_FLASH_OFFSET == 0x3FF000`; `BOND_FLASH_OFFSET == 0x3FD000`.
+  - `config.h` gains the §13 flash-map constants. Static assertions prove: the four regions (image, config, bonds, E10 reserve) are sector-aligned, contiguous, non-overlapping, and end exactly at `FLASH_TOTAL_BYTES`; `CONFIG_FLASH_OFFSET == 0x3FC000`; `BOND_FLASH_OFFSET == 0x3FD000`; `FLASH_E10_RESERVED_OFFSET == 0x3FF000`; `IMAGE_FLASH_LIMIT == 0x3FC000`. Nothing in the firmware reads, erases, or programs the E10 reserve.
   - `config_store` addresses its sector by `CONFIG_FLASH_OFFSET`, **not** by `PICO_FLASH_SIZE_BYTES` (QUESTIONS Q016 is superseded for addressing; record that in `PROGRESS.md`).
   - **Remove `pico_override_flash_size`.** `PICO_FLASH_SIZE_BYTES` stays at the true 4 MB. Shrink only the linker `FLASH` region to `IMAGE_FLASH_LIMIT` with a project `pico_flash_region.ld` passed through `pico_add_linker_script_override_path`, and no compile definition. A target-side static assertion proves `CONFIG_FLASH_OFFSET + FLASH_SECTOR_BYTES <= PICO_FLASH_SIZE_BYTES` and `BOND_FLASH_OFFSET + BOND_FLASH_SIZE <= PICO_FLASH_SIZE_BYTES`. `PICO_FLASH_BANK_STORAGE_OFFSET` and `PICO_FLASH_BANK_TOTAL_SIZE` are set as compile definitions for `pico2_w` from the same constants, and a static assertion in a `pico2_w`-only translation unit ties them to `config.h`.
   - Host tests: the existing T18/T19 config tests still pass unchanged; a new test asserts the map.
-  - **RP2350-E10 is read and recorded.** `PROGRESS.md` quotes the datasheet's E10 entry and states whether a single-family UF2 drag-and-drop can write the last sector. If it can, raise a BLOCKER and stop (PRD §10.1).
+  - **RP2350-E10 is read and recorded.** `PROGRESS.md` quotes the datasheet's E10 entry, records that the SDK's `--abs-block` makes an A2 bootrom erase the last sector on every drag-and-drop, and records that the config sector moved to `0x3FC000` in response (PRD §10.1, §15 row 32).
   - The `.elf`'s highest loaded address is below `IMAGE_FLASH_LIMIT` on both targets (`arm-none-eabi-size -A` or `readelf -l`; record the figure).
-  - **On hardware:** criterion 114 on both boards. Select channel 8 and exit → no freeze, cues on channel 8. Power-cycle → channel 8. Reflash → channel 8. Repeat the change through the 30 s timeout.
+  - **On hardware:** criterion 114 on both boards. Select channel 8 and exit → no freeze, cues on channel 8. Power-cycle → channel 8. Reflash by UF2 drag-and-drop → channel 8. Repeat the change through the 30 s timeout.
 
 ### T32 — link-harness
 - **Branch:** `task/T32-link-harness`
