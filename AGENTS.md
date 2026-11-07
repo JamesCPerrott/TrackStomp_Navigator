@@ -28,7 +28,8 @@ Also out of scope, do not build or research: display/I2C driver, WiFi or network
 - any path that accepts pairing outside the pairing window, or that stores more than `BLE_MAX_BONDS` bonds;
 - any over-the-air console, log, or firmware update;
 - any code on `pico2_w` that configures, reads, or writes GP23, GP24, GP25, or GP29 — those pins belong to the radio (PRD §11.1);
-- any flash write outside `config_store` and BTstack's flash bank, or a bond-store write on a performance path (PRD §10.3).
+- any flash write outside `config_store` and BTstack's flash bank, or a bond-store write on a performance path (PRD §10.3);
+- anything stored in the last flash sector (`0x3FF000`), or any change to the §10.1 map, `--abs-block`, or `PICO_RP2350_A2_SUPPORTED` (RP2350-E10).
 
 Each of these is a BLOCKER question, not a judgement call.
 

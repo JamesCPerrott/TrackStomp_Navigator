@@ -96,10 +96,10 @@ Paste:
 >
 > Before writing code: (1) show me exactly how `config_store` computes its flash address today, and how `pico_override_flash_size` is used; (2) find and quote the RP2350-E10 erratum from the RP2350 datasheet, and tell me whether a single-family UF2 drag-and-drop can write the last flash sector. If you cannot find the datasheet text, say so. Do not paraphrase from memory. Stop there until I confirm.
 >
-> Then implement the §10.1 map with the static assertions in T31's Done-when. The physical config sector must stay at 0x3FF000. Record in PROGRESS.md the highest loaded address of both ELFs and that Q016's flash-size-derived addressing is superseded.
+> Then implement the §10.1 map with the static assertions in T31's Done-when. The config sector moves to 0x3FC000 and the last sector stays empty (PRD §10.1, §15 row 32). Record in PROGRESS.md the highest loaded address of both ELFs and that Q016's flash-size-derived addressing is superseded.
 
 **Check yourself:**
-- Read the E10 text the agent quotes. If it says the last sector can be written during drag-and-drop, stop the phase. Moving the config sector is a migration, not a task detail.
+- Read the E10 text the agent quotes. It confirms why the last sector stays empty: the SDK's `--abs-block` makes an A2 bootrom erase it on every drag-and-drop.
 - Run criterion 114 on both boards with the **T31** build:
   1. Set channel 8 in Setup Mode and exit with 6+9. The pedal must keep playing, with cues on channel 8. Before T31 it froze here.
   2. Power-cycle. It should boot on channel 8.
