@@ -104,6 +104,10 @@ if (BUILD_HOST_TESTS)
     target_link_libraries(test_config_store PRIVATE harness)
     add_test(NAME config_store_read COMMAND test_config_store)
 
+    add_executable(test_flash_map tests/test_flash_map.cpp)
+    target_link_libraries(test_flash_map PRIVATE harness)
+    add_test(NAME flash_map COMMAND test_flash_map)
+
     add_executable(test_loop tests/test_loop.cpp)
     target_link_libraries(test_loop PRIVATE harness)
     add_test(NAME main_loop_dispatch COMMAND test_loop)
@@ -202,9 +206,16 @@ else()
                 "lib/lwip in the Pico SDK. Do not link an lwIP arch; CYW43_LWIP stays 0.")
         endif()
         target_link_libraries(trackstomp_navigator pico_cyw43_arch_poll)
+        target_sources(trackstomp_navigator PRIVATE
+            src/storage/flash_bank_map.cpp
+        )
         target_compile_definitions(trackstomp_navigator PRIVATE
             CYW43_LWIP=0
             TRACKSTOMP_PICO2_W=1
+            # Same values as BOND_FLASH_OFFSET and BOND_FLASH_SIZE in config.h.
+            # flash_bank_map.cpp static_asserts the tie.
+            PICO_FLASH_BANK_STORAGE_OFFSET=0x3FD000
+            PICO_FLASH_BANK_TOTAL_SIZE=0x2000
         )
     endif()
 
@@ -232,9 +243,10 @@ else()
         VERBATIM
     )
 
-    # PRD §10.1: last 4 KB flash sector is reserved for ConfigRecord and must
-    # sit outside the linker image so a firmware update cannot clobber it.
-    # pico_override_flash_size also redefines PICO_FLASH_SIZE_BYTES, which
-    # config_store uses as the reserved-sector offset (Q016).
-    pico_override_flash_size(trackstomp_navigator "(4 * 1024 * 1024) - 4096")
+    # PRD §10.1: shrink the linker FLASH region only. No compile definition —
+    # PICO_FLASH_SIZE_BYTES stays the board's 4 MB. pico_flash_region.ld is
+    # searched before the SDK's generated fragment (override -L comes first).
+    pico_add_linker_script_override_path(trackstomp_navigator
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        FILES pico_flash_region.ld)
 endif()

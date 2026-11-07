@@ -53,10 +53,16 @@ void fill_erased() {
     std::memset(&g_sector, 0xFF, sizeof(g_sector));
 }
 #else
+// PICO_FLASH_SIZE_BYTES stays the real 4 MB. The reserved sector is addressed
+// by CONFIG_FLASH_OFFSET, which sits below that limit, so the hard_assert in
+// flash_range_erase/program accepts the write (Q016 is superseded for addressing).
+static_assert(CONFIG_FLASH_OFFSET + FLASH_SECTOR_BYTES <= PICO_FLASH_SIZE_BYTES);
+static_assert(BOND_FLASH_OFFSET + BOND_FLASH_SIZE <= PICO_FLASH_SIZE_BYTES);
+
 void __no_inline_not_in_flash_func(commit_flash)(const uint8_t* page) {
     const uint32_t ints = save_and_disable_interrupts();
-    flash_range_erase(PICO_FLASH_SIZE_BYTES, FLASH_SECTOR_SIZE);
-    flash_range_program(PICO_FLASH_SIZE_BYTES, page, FLASH_PAGE_SIZE);
+    flash_range_erase(CONFIG_FLASH_OFFSET, FLASH_SECTOR_SIZE);
+    flash_range_program(CONFIG_FLASH_OFFSET, page, FLASH_PAGE_SIZE);
     restore_interrupts(ints);
 }
 #endif
@@ -68,9 +74,7 @@ uint8_t config_store_read_channel() {
 #ifdef HOST_TEST
     rec = g_sector;
 #else
-    // pico_override_flash_size shrinks PICO_FLASH_SIZE_BYTES by one sector, so
-    // that value is the offset of the reserved last 4 KB (Q016).
-    std::memcpy(&rec, reinterpret_cast<const void*>(XIP_BASE + PICO_FLASH_SIZE_BYTES), sizeof(rec));
+    std::memcpy(&rec, reinterpret_cast<const void*>(XIP_BASE + CONFIG_FLASH_OFFSET), sizeof(rec));
 #endif
     if (!record_valid(rec)) {
         return DEFAULT_MIDI_CHANNEL;
