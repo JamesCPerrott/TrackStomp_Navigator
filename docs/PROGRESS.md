@@ -1014,3 +1014,24 @@ None.
 **Defects noted in earlier tasks (not fixed):**
 None in software. Criterion 114 (channel 8 survives exit, power-cycle, and a UF2 drag-and-drop, including the 30 s timeout, on both boards) was not run.
 
+## T31 — criterion 114 bench — 2026-11-06
+
+**Status:** passed on hardware
+**Branch:** task/T31-flash-map
+**Commit:** effe42c (firmware under test; this note is a later append)
+**Criteria covered:** 114, and with it the on-target half of 36 and 38
+
+**Done:**
+James ran criterion 114 on a Pico 2 and a Pico 2 W, both flashed with the T31 build `effe42c`. He reported the criterion passed on both boards. That is: select channel 8 and exit setup, and the pedal keeps playing with cues on channel 8 (no freeze); power-cycle, and it boots on channel 8; reflash by UF2 drag-and-drop, and it is still channel 8; change the channel again and leave by the 30 s timeout, and that exit does not freeze. The earlier T31 entry's "hardware not run" is superseded by this one.
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
