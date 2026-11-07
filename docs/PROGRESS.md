@@ -962,3 +962,97 @@ None.
 **Defects noted in earlier tasks (not fixed):**
 None. Criterion 102 and the onboard-LED half of 111 need a Pico 2 W. Not run here.
 
+## T31 — flash-map — 2026-11-06
+
+**Status:** build complete; hardware not run
+**Branch:** task/T31-flash-map
+**Commit:** (this commit)
+**Criteria covered:** 114 is the bench check and was not run. This commit is the fix for the v1 defect behind 36 and 38.
+**Tests:** 1 added (`flash_map`), 23 total, all green. pico2 and pico2_w `.uf2` produced. T10–T13 still pass (`led_pattern_engine`, `led_performance_patterns`, `led_chord_progress`, `led_channel_blink`), so criteria **41–56 still pass**. `config_store_read` (T18/T19) passes unchanged.
+
+**Done:**
+Removed `pico_override_flash_size`. `PICO_FLASH_SIZE_BYTES` is no longer a compile definition on either target, so it stays the board header's 4 MB. The linker `FLASH` region is shortened only by `pico_flash_region.ld` (`LENGTH = 0x3fc000`), passed through `pico_add_linker_script_override_path` with no compile definition. `config_store` erases, programs, and reads at `CONFIG_FLASH_OFFSET`. Q016 is superseded for addressing: the store no longer treats `PICO_FLASH_SIZE_BYTES` as the sector offset.
+
+`config.h` has the §13 flash-map constants. Static assertions require the image, config, bond, and E10 regions to be sector-aligned, contiguous, and non-overlapping, ending at `FLASH_TOTAL_BYTES`, with `CONFIG_FLASH_OFFSET == 0x3FC000`, `BOND_FLASH_OFFSET == 0x3FD000`, `FLASH_E10_RESERVED_OFFSET == 0x3FF000`, and `IMAGE_FLASH_LIMIT == 0x3FC000`. Nothing in `src/` passes the E10 offset to a read, erase, or program. The target half of `config_store.cpp` asserts both the config sector and the bond region sit inside `PICO_FLASH_SIZE_BYTES`. On `pico2_w`, `PICO_FLASH_BANK_STORAGE_OFFSET=0x3FD000` and `PICO_FLASH_BANK_TOTAL_SIZE=0x2000` are compile definitions, and `src/storage/flash_bank_map.cpp` (that target only) static-asserts they equal `BOND_FLASH_OFFSET` and `BOND_FLASH_SIZE`. `--abs-block` and `PICO_RP2350_A2_SUPPORTED` are unchanged. The pico2 UF2 recipe still passes `--abs-block`.
+
+**Defect found in T18/T19 (Q016) and fixed here.** `pico_override_flash_size` set `PICO_FLASH_SIZE_BYTES` to `(4 * 1024 * 1024) - 4096` (`0x3FF000`). `config_store` then called `flash_range_erase(PICO_FLASH_SIZE_BYTES, FLASH_SECTOR_SIZE)` and the same offset for program. SDK 2.3.1 `hardware_flash/flash.c` begins both functions with `hard_assert(flash_offs + count <= PICO_FLASH_SIZE_BYTES)`. `0x3FF000 + 4096 <= 0x3FF000` is false. In a release build `hard_assert` calls `hard_assertion_failure()`, which calls `panic("Hard assert")` and does not return. That is the freeze on every setup exit that actually wrote, on both boards, seen at T28 and at T30. An exit with no channel change never called erase, so it looked fine, and nothing was ever saved. Criteria 36 and 38 had not been run on hardware.
+
+**RP2350-E10.** Quoted from the RP2350 datasheet, Appendix D.2.1, pages 1351–1352 (PDF `datasheets.raspberrypi.com/rp2350/rp2350-datasheet.pdf`, 1 October 2026):
+
+> Reference: RP2350-E10
+> Summary: UF2 drag-and-drop doesn’t work with partition tables
+> Affects: RP2350 A2
+> Description: When dragging and dropping a UF2 onto the USB Mass Storage Device, the bootrom on chip revision A2 doesn’t set up the flash before checking the partition table. This causes the UF2 download to fail if there is a partition table present.
+> Workaround: Add a single block at the start of the UF2 with an Absolute family ID, targeting the end of Flash, with block number set to 0 and number of blocks set to 2. This block is written to flash first but doesn’t reboot the device, and sets up the flash for the rest of the UF2 to be downloaded correctly. This is handled for you automatically by `picotool` in the Pico SDK, which adds this block when generating UF2s if the `--abs-block` flag is specified. This workaround means that the last block of flash is erased when downloading such a UF2, which could overwrite user data.
+> As of `picotool` version 2.1.0, this additional UF2 block is marked with `UF2_EXTENSION_RP2_IGNORE_BLOCK` (`0x9957e304`). The RP2350 A3 and later bootroms contain a fix for this erratum, and therefore don’t need the workaround. The presence of this extension allows the newer RP2350 to recognize and ignore the workaround block, thus avoiding the risk of overwriting user data.
+> Fixed by: RP2350 A3 bootrom, Documentation, Software
+
+Both board headers set `PICO_RP2350_A2_SUPPORTED`, so the SDK passes `--abs-block`. picotool 2.3.1 places that absolute block at `0x10FFFF00`. An A2 bootrom writes it, and §5.5.2 erases flash a 4 KB sector at a time, so the last sector is erased on every drag-and-drop. A3 and later ignore the block. Config therefore lives at `0x3FC000`, below the bond store. `0x3FF000` is `FLASH_E10_RESERVED_OFFSET` and is never written (PRD §10.1, §15 row 32). No unit had a saved channel, so the move has nothing to migrate.
+
+**Linker map.** `Memory Configuration` from both `.elf.map` files. The SDK's generated fragment for a 4 MB part would say `0x00400000`. Both maps show the project fragment won:
+
+```
+Name             Origin             Length             Attributes
+FLASH            0x10000000         0x003fc000         xr
+```
+
+**Highest loaded address**, end of the highest flash-resident LOAD (`.flash_end`), against `0x103FC000` (`XIP_BASE + IMAGE_FLASH_LIMIT`):
+
+| Target | Highest loaded address | Below 0x103FC000 |
+|---|---|---|
+| pico2 | `0x1000666C` | yes |
+| pico2_w | `0x10043548` | yes |
+
+**Tried and abandoned:**
+The first plan kept the config record in the last sector (`0x3FF000`) and only stopped using `pico_override_flash_size`. That loses the record on every A2 drag-and-drop because of `--abs-block`. Abandoned before this commit; the map above is the one that landed.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None in software. Criterion 114 (channel 8 survives exit, power-cycle, and a UF2 drag-and-drop, including the 30 s timeout, on both boards) was not run.
+
+## T31 — criterion 114 bench — 2026-11-06
+
+**Status:** passed on hardware
+**Branch:** task/T31-flash-map
+**Commit:** effe42c (firmware under test; this note is a later append)
+**Criteria covered:** 114, and with it the on-target half of 36 and 38
+
+**Done:**
+James ran criterion 114 on a Pico 2 and a Pico 2 W, both flashed with the T31 build `effe42c`. He reported the criterion passed on both boards. That is: select channel 8 and exit setup, and the pedal keeps playing with cues on channel 8 (no freeze); power-cycle, and it boots on channel 8; reflash by UF2 drag-and-drop, and it is still channel 8; change the channel again and leave by the 30 s timeout, and that exit does not freeze. The earlier T31 entry's "hardware not run" is superseded by this one.
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
+## T31 — host clang-tidy on flash_bank_map.cpp — 2026-11-06
+
+**Status:** fixed, host checks green
+**Branch:** task/T31-flash-map
+**Commit:** not yet committed (follows effe42c)
+**Criteria covered:** none new
+
+**Done:**
+CI host job passed all 23 tests, then `clang-tidy -p build-host` failed on `src/storage/flash_bank_map.cpp` with undeclared `PICO_FLASH_BANK_STORAGE_OFFSET` and `PICO_FLASH_BANK_TOTAL_SIZE`. That translation unit is pico2_w-only, so it was absent from `build-host/compile_commands.json`. Tidy inferred the sibling `config_store.cpp` command, which has `HOST_TEST` and not the bond-bank macros. The host library now compiles `flash_bank_map.cpp` with `PICO_FLASH_BANK_STORAGE_OFFSET=0x3FD000` and `PICO_FLASH_BANK_TOTAL_SIZE=0x2000`, the same definitions the pico2_w target passes. The static asserts still tie those macros to `config.h`. Host `ctest` is 23/23. `clang-tidy -p build-host src/storage/flash_bank_map.cpp` exits 0. The pico2_w compile definitions are unchanged.
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+

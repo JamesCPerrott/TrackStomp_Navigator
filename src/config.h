@@ -97,6 +97,33 @@ constexpr uint32_t LED_BOOT_CHANNEL_MS  = 2000;
 static_assert((LED_SELF_PAIR_ON_MS + LED_SELF_PAIR_OFF_MS + LED_SELF_PAIR_ON_MS) == LED_CONFIRM_MS);
 static_assert((LED_STANDALONE_MS * 5U) == LED_CONFIRM_MS);
 
+// Flash map (§10.1). Both boards carry 4 MB. The last sector is never written:
+// an A2 bootrom erases it on every UF2 drag-and-drop (RP2350-E10).
+constexpr uint32_t FLASH_TOTAL_BYTES         = 4U * 1024U * 1024U;
+constexpr uint32_t FLASH_SECTOR_BYTES        = 4096U;
+constexpr uint32_t FLASH_E10_RESERVED_OFFSET = FLASH_TOTAL_BYTES - FLASH_SECTOR_BYTES;
+constexpr uint32_t BOND_FLASH_SIZE           = 2U * FLASH_SECTOR_BYTES;
+constexpr uint32_t BOND_FLASH_OFFSET         = FLASH_E10_RESERVED_OFFSET - BOND_FLASH_SIZE;
+constexpr uint32_t CONFIG_FLASH_OFFSET       = BOND_FLASH_OFFSET - FLASH_SECTOR_BYTES;
+constexpr uint32_t IMAGE_FLASH_LIMIT         = CONFIG_FLASH_OFFSET;
+
+static_assert(IMAGE_FLASH_LIMIT % FLASH_SECTOR_BYTES == 0U);
+static_assert(CONFIG_FLASH_OFFSET % FLASH_SECTOR_BYTES == 0U);
+static_assert(BOND_FLASH_OFFSET % FLASH_SECTOR_BYTES == 0U);
+static_assert(BOND_FLASH_SIZE % FLASH_SECTOR_BYTES == 0U);
+static_assert(FLASH_E10_RESERVED_OFFSET % FLASH_SECTOR_BYTES == 0U);
+static_assert(IMAGE_FLASH_LIMIT == CONFIG_FLASH_OFFSET);
+static_assert(CONFIG_FLASH_OFFSET + FLASH_SECTOR_BYTES == BOND_FLASH_OFFSET);
+static_assert(BOND_FLASH_OFFSET + BOND_FLASH_SIZE == FLASH_E10_RESERVED_OFFSET);
+static_assert(FLASH_E10_RESERVED_OFFSET + FLASH_SECTOR_BYTES == FLASH_TOTAL_BYTES);
+static_assert(CONFIG_FLASH_OFFSET < BOND_FLASH_OFFSET);
+static_assert(BOND_FLASH_OFFSET < FLASH_E10_RESERVED_OFFSET);
+static_assert(FLASH_E10_RESERVED_OFFSET < FLASH_TOTAL_BYTES);
+static_assert(CONFIG_FLASH_OFFSET == 0x3FC000U);
+static_assert(BOND_FLASH_OFFSET == 0x3FD000U);
+static_assert(FLASH_E10_RESERVED_OFFSET == 0x3FF000U);
+static_assert(IMAGE_FLASH_LIMIT == 0x3FC000U);
+
 enum class CueTrigger : uint8_t { Tap, SelfPair, PrefixSuffix, Hold };
 
 struct Cue {
