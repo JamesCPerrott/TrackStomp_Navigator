@@ -1035,3 +1035,24 @@ None.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T31 — host clang-tidy on flash_bank_map.cpp — 2026-11-06
+
+**Status:** fixed, host checks green
+**Branch:** task/T31-flash-map
+**Commit:** not yet committed (follows effe42c)
+**Criteria covered:** none new
+
+**Done:**
+CI host job passed all 23 tests, then `clang-tidy -p build-host` failed on `src/storage/flash_bank_map.cpp` with undeclared `PICO_FLASH_BANK_STORAGE_OFFSET` and `PICO_FLASH_BANK_TOTAL_SIZE`. That translation unit is pico2_w-only, so it was absent from `build-host/compile_commands.json`. Tidy inferred the sibling `config_store.cpp` command, which has `HOST_TEST` and not the bond-bank macros. The host library now compiles `flash_bank_map.cpp` with `PICO_FLASH_BANK_STORAGE_OFFSET=0x3FD000` and `PICO_FLASH_BANK_TOTAL_SIZE=0x2000`, the same definitions the pico2_w target passes. The static asserts still tie those macros to `config.h`. Host `ctest` is 23/23. `clang-tidy -p build-host src/storage/flash_bank_map.cpp` exits 0. The pico2_w compile definitions are unchanged.
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+

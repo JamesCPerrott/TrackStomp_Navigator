@@ -18,6 +18,7 @@ if (BUILD_HOST_TESTS)
         src/ui/ui.cpp
         src/midi/midi_out.cpp
         src/storage/config_store.cpp
+        src/storage/flash_bank_map.cpp
         src/board/board_led.cpp
         src/main.cpp
     )
@@ -25,6 +26,13 @@ if (BUILD_HOST_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
     target_compile_definitions(firmware_host PUBLIC HOST_TEST)
+    # pico2_w defines these on the firmware target. This file is in src/, so
+    # host clang-tidy analyzes it against this database; without the macros
+    # the static asserts are undeclared identifiers. Same values as the
+    # pico2_w compile definitions further down.
+    set_source_files_properties(src/storage/flash_bank_map.cpp PROPERTIES
+        COMPILE_DEFINITIONS "PICO_FLASH_BANK_STORAGE_OFFSET=0x3FD000;PICO_FLASH_BANK_TOTAL_SIZE=0x2000"
+    )
 
     add_library(harness STATIC
         tests/harness/harness.cpp
