@@ -9,4 +9,8 @@ uint16_t ui_switch_leds();
 void ui_indicate_channel(uint8_t n);
 void ui_led_init();
 
+#ifdef HOST_TEST
+void ui_reset(); // power-up state at t=0: both engines idle, every LED off
+#endif
+
 #endif

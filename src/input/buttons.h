@@ -21,4 +21,8 @@ uint32_t buttons_accepted_event_seq();
 void buttons_init();
 uint32_t buttons_gpio_levels();
 
+#ifdef HOST_TEST
+void buttons_reset(); // power-up state at t=0, taken from the current pin levels
+#endif
+
 #endif

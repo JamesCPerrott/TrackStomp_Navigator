@@ -422,3 +422,13 @@ void ui_led_init() {
     gpio_put_masked(switch_led_pin_mask(), 0U);
 #endif
 }
+
+#ifdef HOST_TEST
+// The same reset ui_tick performs when time runs backwards, without waiting
+// for it. Both engines; call after buttons_reset().
+void ui_reset() {
+    reset_engine();
+    reset_switch();
+    g_last_now = 0;
+}
+#endif

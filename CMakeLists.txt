@@ -16,7 +16,9 @@ if (BUILD_HOST_TESTS)
         src/input/buttons.cpp
         src/sequencer/sequencer.cpp
         src/ui/ui.cpp
+        src/link/link_state.cpp
         src/midi/midi_out.cpp
+        src/midi/transport.cpp
         src/storage/config_store.cpp
         src/storage/flash_bank_map.cpp
         src/board/board_led.cpp
@@ -43,6 +45,7 @@ if (BUILD_HOST_TESTS)
     )
     target_link_libraries(harness PUBLIC firmware_host)
     # gpio_host.cpp supplies buttons_gpio_levels(); buttons_scan consumes it.
+    # harness.cpp supplies the midi/ble_midi.h fake; loop_dispatch consumes it.
     target_link_libraries(firmware_host PUBLIC harness)
 
     add_executable(test_cue_table
@@ -146,6 +149,25 @@ if (BUILD_HOST_TESTS)
     add_executable(test_switch_setup tests/test_switch_setup.cpp)
     target_link_libraries(test_switch_setup PRIVATE harness)
     add_test(NAME switch_led_setup_chord COMMAND test_switch_setup)
+
+    add_executable(test_link tests/test_link.cpp)
+    target_link_libraries(test_link PRIVATE harness)
+    add_test(NAME link_transport_capture COMMAND test_link)
+
+    add_executable(test_reset tests/test_reset.cpp)
+    target_link_libraries(test_reset PRIVATE harness)
+    add_test(NAME harness_reset_unconditional COMMAND test_reset)
+
+    # The target-side no-radio transport. It cannot link the harness, which
+    # defines the same ble_midi_* functions as the host fake.
+    add_executable(test_ble_stub
+        tests/test_ble_stub.cpp
+        src/midi/ble_midi_stub.cpp
+    )
+    target_include_directories(test_ble_stub PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME ble_no_radio_stub COMMAND test_ble_stub)
 else()
     # T01 pinned the board here so a bare configure stays on pico2.
     # T30: the pico2_w preset sets PICO_BOARD before this file runs; do not
@@ -182,7 +204,11 @@ else()
         src/main.cpp
         src/input/buttons.cpp
         src/sequencer/sequencer.cpp
+        src/link/link_state.cpp
         src/midi/midi_out.cpp
+        src/midi/transport.cpp
+        # No radio on either board until T38 replaces this on pico2_w.
+        src/midi/ble_midi_stub.cpp
         src/midi/usb_descriptors.c
         src/storage/config_store.cpp
         src/ui/ui.cpp
