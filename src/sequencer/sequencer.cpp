@@ -36,8 +36,9 @@ std::size_t g_ui_eng_count     = 0;
 bool g_setup_commit_pending    = false;
 uint8_t g_setup_commit_channel = DEFAULT_MIDI_CHANNEL;
 LinkRequest g_link_requests[kQueueSize]{};
-std::size_t g_link_head  = 0;
-std::size_t g_link_count = 0;
+std::size_t g_link_head    = 0;
+std::size_t g_link_count   = 0;
+uint32_t g_seen_resume_gen = 0;
 
 bool is_prefix(uint8_t id) {
     return id >= 1U && id <= 5U;
@@ -115,7 +116,21 @@ void enter_setup() {
     push_ui(UiEventKind::SetupEnter, g_current_channel);
 }
 
+void push_link(LinkRequestKind kind) {
+    if (g_link_count >= kQueueSize) {
+        return;
+    }
+    const std::size_t index = (g_link_head + g_link_count) % kQueueSize;
+    g_link_requests[index]  = LinkRequest{kind};
+    g_link_count += 1U;
+}
+
 void exit_setup() {
+    // END_PAIRING before the §7.3 commit (§8.5). The window is still open
+    // here; loop_dispatch forwards the request after this tick.
+    if (link_pairing_window_open()) {
+        push_link(LinkRequestKind::EndPairing);
+    }
     g_current_channel      = g_pending_channel;
     g_setup_commit_pending = true;
     g_setup_commit_channel = g_current_channel;
@@ -139,15 +154,11 @@ void reset_sequencer() {
     g_setup_commit_pending = false;
     g_link_head            = 0;
     g_link_count           = 0;
+    g_seen_resume_gen      = 0;
 }
 
 void request_begin_pairing() {
-    if (g_link_count >= kQueueSize) {
-        return;
-    }
-    const std::size_t index = (g_link_head + g_link_count) % kQueueSize;
-    g_link_requests[index]  = LinkRequest{LinkRequestKind::BeginPairing};
-    g_link_count += 1U;
+    push_link(LinkRequestKind::BeginPairing);
 }
 
 void resolve_pair(uint8_t prefix, uint8_t suffix) {
@@ -161,6 +172,10 @@ void resolve_pair(uint8_t prefix, uint8_t suffix) {
 
 void on_tap(uint8_t id, uint32_t now) {
     if (g_state == SeqState::Setup) {
+        // Select nothing, and do not reset inactivity (§8.5).
+        if (link_pairing_window_open()) {
+            return;
+        }
         g_pending_channel = id;
         g_deadline        = now + SETUP_TIMEOUT_MS;
         push_ui(UiEventKind::SetupChannel, id);
@@ -250,14 +265,17 @@ void sequencer_tick(uint32_t now) {
     }
 
     if (g_state == SeqState::Setup) {
-        bool any_down = false;
+        const bool window_open = link_pairing_window_open();
+        bool any_down          = false;
         for (uint8_t id = 1; id <= BUTTON_COUNT; ++id) {
             if (buttons_accepted_pressed(id)) {
                 any_down = true;
                 break;
             }
         }
-        if (any_down) {
+        // While the window is open the held pair must not keep postponing
+        // the deadline the close edge is about to restart.
+        if (!window_open && any_down) {
             g_deadline = now + SETUP_TIMEOUT_MS;
         }
 
@@ -273,7 +291,7 @@ void sequencer_tick(uint32_t now) {
             exit_setup();
         }
 
-        if (g_state == SeqState::Setup && !any_down && now >= g_deadline) {
+        if (!window_open && g_state == SeqState::Setup && !any_down && now >= g_deadline) {
             exit_setup();
         }
     }
@@ -281,6 +299,17 @@ void sequencer_tick(uint32_t now) {
     if (g_state == SeqState::Pending && now >= g_deadline) {
         enter_idle();
         push_ui(UiEventKind::Idle, 0);
+    }
+}
+
+void sequencer_observe_link(uint32_t now) {
+    const uint32_t generation = link_pairing_resume_generation();
+    if (generation == g_seen_resume_gen) {
+        return;
+    }
+    g_seen_resume_gen = generation;
+    if (g_state == SeqState::Setup) {
+        g_deadline = now + SETUP_TIMEOUT_MS;
     }
 }
 

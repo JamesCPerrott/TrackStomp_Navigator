@@ -1246,3 +1246,29 @@ None.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T36 — pairing-window — 2026-11-10
+
+**Status:** complete
+**Branch:** task/T36-pairing-window
+**Commit:** (this commit)
+**Criteria covered:** 88, 90, 91, 92, 93, 94, 98 (window half)
+**Tests:** 1 added (`pairing_window`), 30 total, all green. pico2 and pico2_w `.uf2` produced, no compiler warnings. T10–T13 still pass, so criteria **41–56 still pass**. T26–T27 still pass. T05–T09 still pass.
+
+**Done:**
+`link_state` owns the pairing window. `BEGIN_PAIRING` opens it for `PAIRING_WINDOW_MS` (60000), phase `Advertising`, and the request is still forwarded so the transport clears the bond and advertises. The deadline is taken from `link_tick`'s timestamp on that pass, which is the same millisecond: `loop_dispatch` runs after `link_tick`. A second `BEGIN_PAIRING` restarts that deadline and returns the phase to `Advertising`. `PairingStarted` moves to `Bonding` without moving the deadline. `PairingFailed` returns to `Advertising` without extending it. `PairingSucceeded` closes the window, leaves phase `BondOk`, and does not send `END_PAIRING`. The window deadline sends one `END_PAIRING` and phase `Closed`. `NoRadio` closes the window with no `END_PAIRING`. Events that arrive while the window is closed do not reopen it or clear `BondOk`.
+
+The sequencer polls `link_pairing_window_open()`. Taps of 1–10 select nothing and do not move inactivity. The inactivity check and the any-button refresh are both skipped while the window is open. `sequencer_observe_link()` runs at the end of `loop_dispatch`, after the link events of that pass, so a close at time T restarts inactivity at T rather than T+1. It polls `link_pairing_resume_generation()`, which increments only for bond success and the window deadline (Q035). On 6+9 exit the sequencer queues `END_PAIRING` before the §7.3 commit. `loop_dispatch` still applies the flash write before it forwards that request; both happen in the same pass.
+
+**Tests assert:** 88 first — during the window, taps of 1–10 emit no `SetupChannel` and no transport send, and there is no `SetupExit` at the entry inactivity deadline or 31 s after the taps, while the window is still open. 90 — `PairingSucceeded` closes the window to `BondOk` with no `END_PAIRING`, a later `PairingFailed` does not clear `BondOk`, and setup exits at `close + SETUP_TIMEOUT_MS` with no exit at `− 1` and no flash write. 91 — started then failed, still open, close and one `END_PAIRING` at the original `PAIRING_WINDOW_MS`, nothing at `− 1`. 92 — the same bracket with no pairing events, no second `END_PAIRING` on the next millisecond, setup still active at the close, and `SetupExit` exactly `SETUP_TIMEOUT_MS` later. 93 — exit during the window is `END_PAIRING` plus `SetupExit`; a tap of 7 during the window does not write flash or change the channel; a tap of 3 before the window writes once and commits channel 3. 94 — a second 2+4 is silent at `PAIR_CHORD_HOLD_MS − 1`, sends a second `BEGIN_PAIRING` at the threshold, the original deadline does not close the window, and the new deadline does, bracketed at `− 1`. `NoRadio` closes with no `END_PAIRING`, a later tap of 7 selects channel 7, and setup exits at the pre-window deadline (`opened + SETUP_TIMEOUT_MS`) rather than at the close plus another 30 s.
+
+**Tried and abandoned:**
+The first `NoRadio` assertion treated the deadline captured at setup entry as the live one. The release debounce of 6+9, and the opening pass of 2+4, both refresh inactivity while the window is still closed (`sequencer_tick` runs before `loop_dispatch` opens it). The test now brackets `opened + SETUP_TIMEOUT_MS`.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q035. `NoRadio` and a 6+9 `END_PAIRING` do not restart setup inactivity. Bond success and the window deadline do.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+

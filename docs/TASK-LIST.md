@@ -597,6 +597,7 @@ The loop must refuse to start until T30–T32 are complete, logged in `PROGRESS.
   Write 86 first. The most likely defect is a pair chord that leaks into performance mode and swallows Select (note 28).
 
 ### T36 — pairing-window
+- **Status:** complete
 - **Branch:** `task/T36-pairing-window`
 - **Commit:** `T36: implement the pairing window with suspended setup timeout and ignored taps`
 - **Depends on:** T35

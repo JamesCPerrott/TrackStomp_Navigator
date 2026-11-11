@@ -1,5 +1,7 @@
 #include "link_state.h"
 
+#include "config.h"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -11,6 +13,11 @@ LinkRequest g_requests[kQueueSize]{};
 std::size_t g_request_head  = 0;
 std::size_t g_request_count = 0;
 bool g_ready                = false;
+bool g_window_open          = false;
+LinkPairingPhase g_phase    = LinkPairingPhase::Closed;
+uint32_t g_window_deadline  = 0;
+uint32_t g_now              = 0;
+uint32_t g_resume_gen       = 0;
 
 void push_request(LinkRequest request) {
     if (g_request_count >= kQueueSize) {
@@ -21,17 +28,50 @@ void push_request(LinkRequest request) {
     g_request_count += 1U;
 }
 
-} // namespace
-
-// T32 skeleton. The window never opens, so there is no deadline to expire.
-// T36 owns the window; T37 owns the boot-connect latch.
-void link_tick(uint32_t now) {
-    static_cast<void>(now);
+void open_window() {
+    g_window_open     = true;
+    g_phase           = LinkPairingPhase::Advertising;
+    g_window_deadline = g_now + PAIRING_WINDOW_MS;
 }
 
-// T32: forwarded to the transport unchanged. T36 puts the window in front.
+// Bond success and the window deadline. NoRadio and END_PAIRING do not.
+void note_resume() {
+    g_resume_gen += 1U;
+}
+
+void close_window(LinkPairingPhase phase) {
+    g_window_open = false;
+    g_phase       = phase;
+}
+
+} // namespace
+
+// Deadline is measured from link_tick's timestamp. loop_dispatch runs after
+// link_tick on the same pass, so BEGIN_PAIRING opens at that millisecond.
+void link_tick(uint32_t now) {
+    g_now = now;
+    if (!g_window_open || now < g_window_deadline) {
+        return;
+    }
+    close_window(LinkPairingPhase::Closed);
+    note_resume();
+    push_request(LinkRequest{LinkRequestKind::EndPairing});
+}
+
 void link_on_request(LinkRequest request) {
-    push_request(request);
+    switch (request.kind) {
+    case LinkRequestKind::BeginPairing:
+        // A second chord restarts the deadline and advertises again (§7.5).
+        open_window();
+        push_request(request);
+        break;
+    case LinkRequestKind::EndPairing:
+        if (g_window_open) {
+            close_window(LinkPairingPhase::Closed);
+        }
+        push_request(request);
+        break;
+    }
 }
 
 void link_on_event(LinkEvent event) {
@@ -43,10 +83,28 @@ void link_on_event(LinkEvent event) {
         g_ready = false;
         break;
     case LinkEventKind::PairingStarted:
-    case LinkEventKind::PairingSucceeded:
+        if (g_window_open) {
+            g_phase = LinkPairingPhase::Bonding;
+        }
+        break;
     case LinkEventKind::PairingFailed:
+        // Deadline is not extended (§7.5).
+        if (g_window_open) {
+            g_phase = LinkPairingPhase::Advertising;
+        }
+        break;
+    case LinkEventKind::PairingSucceeded:
+        if (g_window_open) {
+            close_window(LinkPairingPhase::BondOk);
+            note_resume();
+        }
+        break;
     case LinkEventKind::NoRadio:
-        break; // T36
+        // Closes immediately. No END_PAIRING, and no inactivity restart (Q035).
+        if (g_window_open) {
+            close_window(LinkPairingPhase::Closed);
+        }
+        break;
     }
 }
 
@@ -61,11 +119,15 @@ bool link_poll_request(LinkRequest* out) {
 }
 
 bool link_pairing_window_open() {
-    return false;
+    return g_window_open;
 }
 
 LinkPairingPhase link_pairing_phase() {
-    return LinkPairingPhase::Closed;
+    return g_phase;
+}
+
+uint32_t link_pairing_resume_generation() {
+    return g_resume_gen;
 }
 
 bool link_ready() {
@@ -78,8 +140,13 @@ bool link_boot_connected() {
 
 #ifdef HOST_TEST
 void link_reset() {
-    g_request_head  = 0;
-    g_request_count = 0;
-    g_ready         = false;
+    g_request_head    = 0;
+    g_request_count   = 0;
+    g_ready           = false;
+    g_window_open     = false;
+    g_phase           = LinkPairingPhase::Closed;
+    g_window_deadline = 0;
+    g_now             = 0;
+    g_resume_gen      = 0;
 }
 #endif

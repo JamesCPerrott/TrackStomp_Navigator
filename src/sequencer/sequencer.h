@@ -25,6 +25,9 @@ struct UiEvent {
 };
 
 void sequencer_tick(uint32_t now);
+// loop_dispatch calls this after link events on the same pass, so a close at
+// time T restarts setup inactivity at T (§8.5).
+void sequencer_observe_link(uint32_t now);
 bool sequencer_poll_command(Command* out);
 bool sequencer_poll_command_for_midi(Command* out);
 bool sequencer_poll_ui_event(UiEvent* out);

@@ -917,6 +917,30 @@ separate notification with its own header and timestamp. It does not name the No
 
 ---
 
+## Q035 — [ASSUMED] — T36
+
+**Task:** T36 pairing-window
+**Raised:** 2026-11-10
+**Type:** ASSUMPTION — which closes restart setup inactivity
+
+**Assumed:**
+Setup inactivity restarts only when the window closes because the bond succeeded or because
+`PAIRING_WINDOW_MS` elapsed. `NoRadio` closes the window with no `END_PAIRING` and does not
+restart the timer, so a board with no radio does not gain another `SETUP_TIMEOUT_MS`. `END_PAIRING`
+from a 6+9 exit does not restart it either; setup is already leaving.
+
+**Reasoning:**
+§8.5 names those two closes. §7.5 says a build with no radio closes immediately and taps resume,
+which is the timer that was already running, not a fresh 30 s. The sequencer polls
+`link_pairing_resume_generation()` for that edge because a falling `link_pairing_window_open()`
+is also what `NoRadio` looks like.
+
+**Cost to reverse:** low — bump the generation on `NoRadio` as well.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._

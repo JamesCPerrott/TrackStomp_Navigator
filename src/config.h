@@ -28,6 +28,9 @@ constexpr uint8_t PAIR_CHORD_BUTTON_A = 2;
 constexpr uint8_t PAIR_CHORD_BUTTON_B = 4;
 constexpr uint32_t PAIR_CHORD_HOLD_MS = 2000;
 
+// Pairing window (§7.5). link_state owns the deadline.
+constexpr uint32_t PAIRING_WINDOW_MS = 60000;
+
 // LED timing
 constexpr uint32_t CHORD_LED_DELAY_MS   = 500; // silent window at chord start
 constexpr uint32_t CHORD_LED_FLASH_MS   = 125; // on and off; 250 ms period

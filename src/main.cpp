@@ -44,6 +44,8 @@ void loop_dispatch(uint32_t now_ms) {
     while (ble_midi_poll_event(&event)) {
         link_on_event(event);
     }
+    // Same pass as the close, so inactivity restarts at this millisecond.
+    sequencer_observe_link(now_ms);
 }
 
 #ifndef HOST_TEST
