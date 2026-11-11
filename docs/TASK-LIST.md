@@ -565,6 +565,7 @@ The loop must refuse to start until T30–T32 are complete, logged in `PROGRESS.
 ## Loop tasks
 
 ### T33 — ble-midi-packet
+- **Status:** complete
 - **Branch:** `task/T33-ble-midi-packet`
 - **Commit:** `T33: add the BLE-MIDI packet encoder`
 - **Depends on:** T32

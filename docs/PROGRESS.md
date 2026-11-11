@@ -1,4 +1,4 @@
-LOOP-STATUS: NOT STARTED — Phase 10
+LOOP-STATUS: RUNNING — Phase 10
 
 # Progress log
 
@@ -1166,4 +1166,31 @@ None. T30's hardware bullets (criterion 102 and the onboard-LED half of 111) wer
 - `docs/LOOP-PROMPT.md` said new questions start at Q033. Q033 was used by T30. It now says Q034.
 - `docs/TEST-HARNESS.md` listed `PairChordHold` in `ButtonEventKind` before the code has it. The doc line now says T35 adds it.
 - `harness_reset()` did not reset `buttons`, `sequencer`, or `ui` when the clock was already at 0. Fixed and tested as described above.
+
+## T33 — ble-midi-packet — 2026-11-10
+
+**Status:** complete
+**Branch:** task/T33-ble-midi-packet
+**Commit:** (this commit)
+**Criteria covered:** 99
+**Tests:** 1 added (`ble_midi_packet`), 27 total, all green. pico2 and pico2_w `.uf2` produced, no compiler warnings. T10–T13 still pass (`led_pattern_engine`, `led_performance_patterns`, `led_chord_progress`, `led_channel_blink`), so criteria **41–56 still pass**. T26–T27 still pass (`switch_led_engine`, `switch_led_setup_chord`). `harness_lamp_trace()`, `harness_switch_trace()`, and every existing matcher are unchanged. No existing test file was edited.
+
+**Done:**
+`src/midi/ble_midi_packet.h/.cpp` encodes one Note On, and one Note Off, into the five-byte §9.3.2 layout from `(note, channel, now_ms)`. Header byte is `10` plus timestamp bits 12..7. Timestamp byte has bit 7 set and carries bits 6..0. Status is `0x90 | (channel - 1)` for Note On and `0x80 | (channel - 1)` for Note Off. Note On velocity is `MIDI_VELOCITY`. The low 13 bits of `now_ms` are taken with `BLE_MIDI_TIMESTAMP_MASK`, so `0x2000` wraps to `0`. No BTstack, cyw43, or TinyUSB include. `midi_out` does not call the encoder yet; that is T34.
+
+`BLE_MIDI_TIMESTAMP_MASK` (`0x1FFF`) was added to `config.h`. The PRD §13 block already names it. It was not in the header; T32 recorded that it added no constants.
+
+**Tests assert:** the criterion 99 worked example `B5 BC 92 05 01`; the wrap bracket `0x1FFF` / `0x2000` / `0x2001`; channels 1 and 10; every note 0–32 and every `CUE_TABLE` note; bit 7 set and header bit 6 clear across every timestamp from 0 through `0x2000` and a set of values above the mask, with the 13 timestamp bits recovered from the two framing bytes. Note Off is locked at the same timestamp bytes, status `0x82` for channel 3, velocity 0. `SEND_NOTE_OFF` remains false.
+
+**Tried and abandoned:**
+Putting `BLE_MIDI_TIMESTAMP_MASK` in the existing `constexpr` alignment group made `clang-format` want to reflow that whole group. It sits in its own group, after `LED_PANEL_GPIO`, so the surrounding constants stay byte-for-byte.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:**
+Q034 — [ASSUMED]. Note Off velocity is 0, matching the USB Note Off in `midi_out`. §9.3.2 does not name it.
+
+**Defects noted in earlier tasks (not fixed):**
+`docs/QUESTIONS.md` still says new Phase 10 questions start at Q033. T32 moved that sentence in `docs/LOOP-PROMPT.md` to Q034, which is the number used here.
 

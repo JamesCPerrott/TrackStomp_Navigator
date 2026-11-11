@@ -19,6 +19,7 @@ if (BUILD_HOST_TESTS)
         src/link/link_state.cpp
         src/midi/midi_out.cpp
         src/midi/transport.cpp
+        src/midi/ble_midi_packet.cpp
         src/storage/config_store.cpp
         src/storage/flash_bank_map.cpp
         src/board/board_led.cpp
@@ -154,6 +155,10 @@ if (BUILD_HOST_TESTS)
     target_link_libraries(test_link PRIVATE harness)
     add_test(NAME link_transport_capture COMMAND test_link)
 
+    add_executable(test_ble_midi_packet tests/test_ble_midi_packet.cpp)
+    target_link_libraries(test_ble_midi_packet PRIVATE harness)
+    add_test(NAME ble_midi_packet COMMAND test_ble_midi_packet)
+
     add_executable(test_reset tests/test_reset.cpp)
     target_link_libraries(test_reset PRIVATE harness)
     add_test(NAME harness_reset_unconditional COMMAND test_reset)
@@ -207,6 +212,7 @@ else()
         src/link/link_state.cpp
         src/midi/midi_out.cpp
         src/midi/transport.cpp
+        src/midi/ble_midi_packet.cpp
         # No radio on either board until T38 replaces this on pico2_w.
         src/midi/ble_midi_stub.cpp
         src/midi/usb_descriptors.c

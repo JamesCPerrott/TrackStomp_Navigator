@@ -896,6 +896,27 @@ when radio init fails.
 
 ---
 
+## Q034 — [ASSUMED] — T33
+
+**Task:** T33 ble-midi-packet
+**Raised:** 2026-11-10
+**Type:** ASSUMPTION — Note Off velocity is not named in §9.3.2
+
+**Assumed:**
+`ble_midi_encode_note_off` writes velocity 0. Note On writes `MIDI_VELOCITY`. The Note Off
+encoder is always linked; a caller sends that packet only when `SEND_NOTE_OFF` is true.
+
+**Reasoning:**
+§9.3.2 specifies the Note On layout and says a Note Off, if `SEND_NOTE_OFF` is enabled, is a
+separate notification with its own header and timestamp. It does not name the Note Off velocity.
+`midi_out` already sends a USB Note Off with velocity 0.
+
+**Cost to reverse:** low — one byte in the encoder.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._

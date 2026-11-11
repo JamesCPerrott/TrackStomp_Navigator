@@ -20,6 +20,9 @@ constexpr uint8_t CHORD_BUTTON_A       = 6;
 constexpr uint8_t CHORD_BUTTON_B       = 9;
 constexpr uint8_t LED_PANEL_GPIO       = 16; // NPN switch, high = on
 
+// Low 13 bits of milliseconds since boot (§9.3.2). Wraps every 8192 ms.
+constexpr uint32_t BLE_MIDI_TIMESTAMP_MASK = 0x1FFFU;
+
 // LED timing
 constexpr uint32_t CHORD_LED_DELAY_MS   = 500; // silent window at chord start
 constexpr uint32_t CHORD_LED_FLASH_MS   = 125; // on and off; 250 ms period
