@@ -20,10 +20,10 @@
 
 #include <cstdint>
 
-void loop_dispatch() {
+void loop_dispatch(uint32_t now_ms) {
     Command command{};
     while (sequencer_poll_command_for_midi(&command)) {
-        midi_out_send(command.note);
+        midi_out_send(command.note, now_ms);
     }
     uint8_t channel = 0;
     while (sequencer_poll_setup_commit(&channel)) {
@@ -81,7 +81,7 @@ int main() {
         buttons_scan(now);
         sequencer_tick(now);
         link_tick(now);
-        loop_dispatch();
+        loop_dispatch(now);
         ui_tick(now);
         board_led_set(ui_lamp());
         sleep_us(500);

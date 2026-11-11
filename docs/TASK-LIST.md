@@ -575,6 +575,7 @@ The loop must refuse to start until T30–T32 are complete, logged in `PROGRESS.
 - **Done when:** A pure function in `src/midi/ble_midi_packet.h/.cpp` encodes one Note On (and, behind `SEND_NOTE_OFF`, one Note Off) into the five-byte §9.3.2 layout from `(note, channel, now_ms)`. Tests cover the two worked examples in criterion 99, the 13-bit wrap at 0x2000, channels 1 and 10, and every note 0–32 from `CUE_TABLE`. Bit 7 is set on header and timestamp bytes for every input, and a test asserts it across a sweep of timestamps. No BTstack include.
 
 ### T34 — transport-arbitration
+- **Status:** complete
 - **Branch:** `task/T34-transport-arbitration`
 - **Commit:** `T34: route each cue to exactly one transport with USB taking priority`
 - **Depends on:** T33

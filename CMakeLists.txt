@@ -159,6 +159,10 @@ if (BUILD_HOST_TESTS)
     target_link_libraries(test_ble_midi_packet PRIVATE harness)
     add_test(NAME ble_midi_packet COMMAND test_ble_midi_packet)
 
+    add_executable(test_transport tests/test_transport.cpp)
+    target_link_libraries(test_transport PRIVATE harness)
+    add_test(NAME transport_arbitration COMMAND test_transport)
+
     add_executable(test_reset tests/test_reset.cpp)
     target_link_libraries(test_reset PRIVATE harness)
     add_test(NAME harness_reset_unconditional COMMAND test_reset)

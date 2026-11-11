@@ -1,6 +1,8 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-void loop_dispatch();
+#include <cstdint>
+
+void loop_dispatch(uint32_t now_ms);
 
 #endif

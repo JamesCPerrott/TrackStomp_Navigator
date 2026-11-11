@@ -1194,3 +1194,29 @@ Q034 — [ASSUMED]. Note Off velocity is 0, matching the USB Note Off in `midi_o
 **Defects noted in earlier tasks (not fixed):**
 `docs/QUESTIONS.md` still says new Phase 10 questions start at Q033. T32 moved that sentence in `docs/LOOP-PROMPT.md` to Q034, which is the number used here.
 
+## T34 — transport-arbitration — 2026-11-10
+
+**Status:** complete
+**Branch:** task/T34-transport-arbitration
+**Commit:** (this commit)
+**Criteria covered:** 97, 98 (transport half)
+**Tests:** 1 added (`transport_arbitration`), 28 total, all green. pico2 and pico2_w `.uf2` produced, no compiler warnings. T10–T13 still pass, so criteria **41–56 still pass**. T26–T27 still pass. `harness_lamp_trace()`, `harness_switch_trace()`, and the link and transport matchers are unchanged.
+
+**Done:**
+`transport_select` is the §9.4 table: USB mounted wins, otherwise BLE when `link_ready()`, otherwise `None`. `midi_out_send` calls it per cue. USB still writes the T16 three-byte Note On (and the Note Off only when `SEND_NOTE_OFF` is true). BLE hands `ble_midi_encode_note_on` to `ble_midi_send`. `None` returns without writing either wire.
+
+The BLE timestamp is the loop's `now` at resolution. `loop_dispatch(uint32_t now_ms)` and `midi_out_send(uint8_t note, uint32_t now_ms)` take it. The host pipeline passes `g_now_ms`. The target loop passes the same `now` it already gave `sequencer_tick`. `tests/test_midi_out.cpp` passes `0`; its USB byte assertions are unchanged. The pairing-window half of criterion 98 is T36: the window still never opens.
+
+**Tests assert:** the four policy combinations, directly and through a tap of button 10; the release edge at `DEBOUNCE_MS − 1` and the exact millisecond, on USB and on BLE; USB bytes `0x90`, note, `MIDI_VELOCITY` with an empty BLE capture when USB wins, including while BLE is ready; the encoder's five bytes and no USB bytes when BLE wins, on channel 1 and channel 10; a resolved cue with neither transport ready appears in `REQUIRE_COMMANDS` and not in `REQUIRE_TRANSPORT_SENDS`; two cues in a row, and a prefix-then-suffix, with USB unplugged or plugged between them; two identical BLE cues with different timestamps; a hold bracketed at `HOLD_MS − 1` / `HOLD_MS` on BLE, then a press during lockout that sends nothing; setup entry bracketed at `CHORD_HOLD_MS − 1` / `CHORD_HOLD_MS`, a press during the chord lockout, a channel tap, and a cue after exit that is sent again.
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
