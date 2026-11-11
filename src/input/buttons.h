@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-enum class ButtonEventKind : uint8_t { Tap, Hold, ChordHold };
+enum class ButtonEventKind : uint8_t { Tap, Hold, ChordHold, PairChordHold };
 
 struct ButtonEvent {
     uint8_t id;

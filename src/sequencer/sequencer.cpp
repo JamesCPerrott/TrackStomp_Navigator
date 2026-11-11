@@ -2,6 +2,7 @@
 
 #include "config.h"
 #include "input/buttons.h"
+#include "link/link_state.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -34,6 +35,9 @@ std::size_t g_ui_eng_head      = 0;
 std::size_t g_ui_eng_count     = 0;
 bool g_setup_commit_pending    = false;
 uint8_t g_setup_commit_channel = DEFAULT_MIDI_CHANNEL;
+LinkRequest g_link_requests[kQueueSize]{};
+std::size_t g_link_head  = 0;
+std::size_t g_link_count = 0;
 
 bool is_prefix(uint8_t id) {
     return id >= 1U && id <= 5U;
@@ -133,6 +137,17 @@ void reset_sequencer() {
     g_ui_eng_head          = 0;
     g_ui_eng_count         = 0;
     g_setup_commit_pending = false;
+    g_link_head            = 0;
+    g_link_count           = 0;
+}
+
+void request_begin_pairing() {
+    if (g_link_count >= kQueueSize) {
+        return;
+    }
+    const std::size_t index = (g_link_head + g_link_count) % kQueueSize;
+    g_link_requests[index]  = LinkRequest{LinkRequestKind::BeginPairing};
+    g_link_count += 1U;
 }
 
 void resolve_pair(uint8_t prefix, uint8_t suffix) {
@@ -201,6 +216,13 @@ void on_chord_hold(uint32_t now) {
     enter_setup();
 }
 
+void on_pair_chord_hold() {
+    if (g_state != SeqState::Setup) {
+        return;
+    }
+    request_begin_pairing();
+}
+
 } // namespace
 
 void sequencer_tick(uint32_t now) {
@@ -220,6 +242,9 @@ void sequencer_tick(uint32_t now) {
             break;
         case ButtonEventKind::ChordHold:
             on_chord_hold(now);
+            break;
+        case ButtonEventKind::PairChordHold:
+            on_pair_chord_hold();
             break;
         }
     }
@@ -296,6 +321,16 @@ bool sequencer_poll_ui_event_for_engine(UiEvent* out) {
     *out          = g_ui_engine[g_ui_eng_head];
     g_ui_eng_head = (g_ui_eng_head + 1U) % kQueueSize;
     g_ui_eng_count -= 1U;
+    return true;
+}
+
+bool sequencer_poll_link_request(LinkRequest* out) {
+    if (out == nullptr || g_link_count == 0U) {
+        return false;
+    }
+    *out        = g_link_requests[g_link_head];
+    g_link_head = (g_link_head + 1U) % kQueueSize;
+    g_link_count -= 1U;
     return true;
 }
 

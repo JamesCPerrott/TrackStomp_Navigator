@@ -1,6 +1,8 @@
 #ifndef SEQUENCER_H
 #define SEQUENCER_H
 
+#include "link/link_state.h"
+
 #include <cstdint>
 
 struct Command {
@@ -28,6 +30,7 @@ bool sequencer_poll_command_for_midi(Command* out);
 bool sequencer_poll_ui_event(UiEvent* out);
 bool sequencer_poll_ui_event_for_engine(UiEvent* out);
 bool sequencer_poll_setup_commit(uint8_t* out);
+bool sequencer_poll_link_request(LinkRequest* out);
 
 #ifdef HOST_TEST
 void sequencer_reset(); // power-up state at t=0: IDLE, default channel, empty queues

@@ -233,6 +233,8 @@ const char* button_kind_name(ButtonEventKind kind) {
         return "Hold";
     case ButtonEventKind::ChordHold:
         return "ChordHold";
+    case ButtonEventKind::PairChordHold:
+        return "PairChordHold";
     }
     return "unknown";
 }

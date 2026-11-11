@@ -585,6 +585,7 @@ The loop must refuse to start until T30–T32 are complete, logged in `PROGRESS.
 - **Done when:** The §9.4 table is the `transport` policy function, and `midi_out` calls it **per cue**. Tests drive `harness_set_usb_mounted()` and a ready/not-ready link through all four combinations, toggle USB between two cues of one sequence, and assert with `REQUIRE_TRANSPORT_SENDS` that every cue appears exactly once or not at all. Nothing is sent in `SETUP` or `LOCKED`. The USB path is byte-for-byte what T16 sends; the BLE path hands the T33 encoder's output to the transport seam. Existing `Command` captures are unchanged.
 
 ### T35 — pair-chord-detection
+- **Status:** complete
 - **Branch:** `task/T35-pair-chord-detection`
 - **Commit:** `T35: detect the 2+4 pair chord in setup with a strict continuous hold timer`
 - **Depends on:** T34

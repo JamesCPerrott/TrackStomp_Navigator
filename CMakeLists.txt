@@ -163,6 +163,10 @@ if (BUILD_HOST_TESTS)
     target_link_libraries(test_transport PRIVATE harness)
     add_test(NAME transport_arbitration COMMAND test_transport)
 
+    add_executable(test_pair_chord tests/test_pair_chord.cpp)
+    target_link_libraries(test_pair_chord PRIVATE harness)
+    add_test(NAME pair_chord_detection COMMAND test_pair_chord)
+
     add_executable(test_reset tests/test_reset.cpp)
     target_link_libraries(test_reset PRIVATE harness)
     add_test(NAME harness_reset_unconditional COMMAND test_reset)

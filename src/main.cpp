@@ -30,8 +30,12 @@ void loop_dispatch(uint32_t now_ms) {
         config_store_write_channel(channel);
         midi_out_set_channel(channel);
     }
-    // Link half (PRD §12.2). T35 adds the sequencer's link requests →
-    // link_on_request ahead of these two.
+    // Link half (PRD §12.2). The sequencer's request is applied, then the
+    // transport drain runs, in the same pass.
+    LinkRequest from_sequencer{};
+    while (sequencer_poll_link_request(&from_sequencer)) {
+        link_on_request(from_sequencer);
+    }
     LinkRequest request{};
     while (link_poll_request(&request)) {
         ble_midi_request(request);

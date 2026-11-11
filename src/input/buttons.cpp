@@ -24,7 +24,8 @@ struct ButtonSlot {
     bool hold_fired;
     bool tap_suppressed;
     bool chord_overlap;
-    uint8_t pad[3]{};
+    bool pair_overlap;
+    uint8_t pad[2]{};
 };
 
 ButtonSlot g_slots[BUTTON_COUNT]{};
@@ -36,11 +37,13 @@ std::size_t g_seq_head    = 0;
 std::size_t g_seq_count   = 0;
 uint32_t g_last_now       = 0;
 uint32_t g_chord_start    = 0;
+uint32_t g_pair_start     = 0;
 uint32_t g_accepted_seq   = 0;
 LockKind g_lock           = LockKind::None;
 uint8_t g_lock_id         = 0;
 bool g_initialized        = false;
 bool g_chord_armed        = false;
+bool g_pair_armed         = false;
 bool g_setup_active       = false;
 
 bool pin_pressed(uint32_t levels, uint8_t index) {
@@ -73,6 +76,17 @@ bool hold_capable(uint8_t id) {
 
 bool is_chord_member(uint8_t id) {
     return id == CHORD_BUTTON_A || id == CHORD_BUTTON_B;
+}
+
+bool is_pair_member(uint8_t id) {
+    return id == PAIR_CHORD_BUTTON_A || id == PAIR_CHORD_BUTTON_B;
+}
+
+uint8_t other_pair_id(uint8_t id) {
+    if (id == PAIR_CHORD_BUTTON_A) {
+        return PAIR_CHORD_BUTTON_B;
+    }
+    return PAIR_CHORD_BUTTON_A;
 }
 
 uint8_t other_chord_id(uint8_t id) {
@@ -126,11 +140,14 @@ void init_from_gpio(uint32_t now, uint32_t levels) {
         g_slots[i].hold_fired        = false;
         g_slots[i].tap_suppressed    = false;
         g_slots[i].chord_overlap     = false;
+        g_slots[i].pair_overlap      = false;
     }
     g_initialized  = true;
     g_last_now     = now;
     g_chord_start  = 0;
+    g_pair_start   = 0;
     g_chord_armed  = false;
+    g_pair_armed   = false;
     g_lock         = LockKind::None;
     g_lock_id      = 0;
     g_setup_active = false;
@@ -150,15 +167,34 @@ void note_chord_press(ButtonSlot& slot, uint8_t id) {
     g_chord_start       = slot.press_time;
 }
 
+void note_pair_press(ButtonSlot& slot, uint8_t id) {
+    if (!g_setup_active || !is_pair_member(id)) {
+        return;
+    }
+    ButtonSlot& other = g_slots[button_index(other_pair_id(id))];
+    if (!other.accepted_pressed) {
+        return;
+    }
+    slot.pair_overlap  = true;
+    other.pair_overlap = true;
+    g_pair_armed       = true;
+    g_pair_start       = slot.press_time;
+}
+
 void classify_release(ButtonSlot& slot, uint8_t id, uint32_t levels) {
     if (is_chord_member(id)) {
         g_chord_armed = false;
     }
+    if (is_pair_member(id)) {
+        g_pair_armed = false;
+    }
 
-    const bool emit_tap = !slot.hold_fired && !slot.tap_suppressed && !slot.chord_overlap;
+    const bool emit_tap =
+        !slot.hold_fired && !slot.tap_suppressed && !slot.chord_overlap && !slot.pair_overlap;
     slot.hold_fired     = false;
     slot.tap_suppressed = false;
     slot.chord_overlap  = false;
+    slot.pair_overlap   = false;
 
     if (g_lock == LockKind::Button && id == g_lock_id) {
         suppress_physically_pressed(levels);
@@ -200,6 +236,7 @@ void classify_hold(ButtonSlot& slot, uint8_t id, uint32_t now) {
         queue_push(id, ButtonEventKind::Hold);
         slot.hold_fired = true;
         g_chord_armed   = false;
+        g_pair_armed    = false;
         g_lock          = LockKind::Button;
         g_lock_id       = id;
         return;
@@ -230,6 +267,25 @@ void classify_chord(uint32_t now) {
     g_lock        = LockKind::Chord;
 }
 
+void classify_pair(uint32_t now) {
+    if (!g_setup_active || is_locked() || !g_pair_armed) {
+        return;
+    }
+    const ButtonSlot& slot_a = g_slots[button_index(PAIR_CHORD_BUTTON_A)];
+    const ButtonSlot& slot_b = g_slots[button_index(PAIR_CHORD_BUTTON_B)];
+    if (!slot_a.accepted_pressed || !slot_b.accepted_pressed) {
+        return;
+    }
+    if (!slot_a.candidate_pressed || !slot_b.candidate_pressed) {
+        return;
+    }
+    if ((now - g_pair_start) < PAIR_CHORD_HOLD_MS) {
+        return;
+    }
+    queue_push(PAIR_CHORD_BUTTON_A, ButtonEventKind::PairChordHold);
+    g_pair_armed = false;
+}
+
 } // namespace
 
 void buttons_scan(uint32_t now) {
@@ -257,10 +313,12 @@ void buttons_scan(uint32_t now) {
                 slot.press_time    = slot.candidate_since;
                 slot.hold_fired    = false;
                 slot.chord_overlap = false;
+                slot.pair_overlap  = false;
                 if (is_locked()) {
                     slot.tap_suppressed = true;
                 } else if (!slot.tap_suppressed) {
                     note_chord_press(slot, id);
+                    note_pair_press(slot, id);
                 }
             } else {
                 classify_release(slot, id, levels);
@@ -269,6 +327,7 @@ void buttons_scan(uint32_t now) {
         classify_hold(slot, id, now);
     }
     classify_chord(now);
+    classify_pair(now);
 }
 
 bool buttons_poll_event(ButtonEvent* out) {
@@ -292,6 +351,9 @@ bool buttons_poll_sequencer_event(ButtonEvent* out) {
 }
 
 void buttons_set_setup_active(bool active) {
+    if (g_setup_active && !active) {
+        g_pair_armed = false;
+    }
     g_setup_active = active;
 }
 

@@ -1220,3 +1220,29 @@ None.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T35 — pair-chord-detection — 2026-11-10
+
+**Status:** complete
+**Branch:** task/T35-pair-chord-detection
+**Commit:** (this commit)
+**Criteria covered:** 84, 85, 86, 87
+**Tests:** 1 added (`pair_chord_detection`), 29 total, all green. pico2 and pico2_w `.uf2` produced, no compiler warnings. T05–T09 still pass (`tap_hold_classification`, `chord_detection`, `hold_lockout`, `sequence_state_machine`, `setup_mode_state`). T10–T13 still pass, so criteria **41–56 still pass**. T26–T27 still pass.
+
+**Done:**
+While setup is active, `input` applies the §6.5 rules to buttons `PAIR_CHORD_BUTTON_A` and `PAIR_CHORD_BUTTON_B` (2 and 4). Any overlap sets `pair_overlap` on both for the rest of those presses, so neither tap selects a channel. The timer starts at the second press's `press_time`, needs `PAIR_CHORD_HOLD_MS` (2000) of continuous overlap, clears on any release, and restarts in full on re-form. At the threshold one `ButtonEventKind::PairChordHold` is emitted. It is not emitted outside setup. Leaving setup clears an armed timer. A contact bounce that never passes debounce does not clear it.
+
+The sequencer, only in `SETUP`, turns that event into one `BEGIN_PAIRING` on `sequencer_poll_link_request`. `loop_dispatch` forwards it to `link_on_request` and then to the transport in the same pass. No MIDI is sent. The window itself is still T36: `link_on_request` still forwards the request unchanged.
+
+**Tests assert:** criterion 86 first — outside setup, 2 then 4 at +100 ms produces note 28 on USB at `HOLD_MS`, nothing at `HOLD_MS − 1`, and no pairing request through `100 + PAIR_CHORD_HOLD_MS` or after both are released. In setup, nothing at `PAIR_CHORD_HOLD_MS − 1` and one `BEGIN_PAIRING` at the threshold, with no second request on the next millisecond and no command on either wire. An abort at 1500 ms selects neither channel; a later clean tap of 2 does. A release at 1000 ms and re-press at 1500 ms is silent at the original deadline and at `3500 − 1`, and requests at 3500. A 20-edge bounce on button 4 does not move that deadline.
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+

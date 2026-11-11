@@ -558,8 +558,8 @@ REQUIRE_TRANSPORT_SENDS(TransportSend{Transport::Ble, 5});
 Defined in `src/input/buttons.h`:
 
 ```cpp
-enum class ButtonEventKind : uint8_t { Tap, Hold, ChordHold };
-// T35 adds PairChordHold (Phase 10, setup only). It is not in the code before T35.
+enum class ButtonEventKind : uint8_t { Tap, Hold, ChordHold, PairChordHold };
+// PairChordHold is emitted only while setup is active (T35).
 struct ButtonEvent {
     uint8_t id;
     ButtonEventKind kind;
