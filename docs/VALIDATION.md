@@ -251,7 +251,7 @@ in the sealed enclosure, standing on it, **before** deciding anything about shie
 
 | # | Criterion | Result | Notes |
 |---|---|---|---|
-| 102 | Pico 2 W enumerates as criteria 1 and 2 | | |
+| 102 | Pico 2 W enumerates as criteria 1 and 2 | PASS | 2026-11-04, both boards, firmware tip `0ccda5e` |
 | 103 | GATT scan shows only GAP, GATT, BLE-MIDI; adv data minimal | | Scanner app: |
 | 104 | No pairing outside the window; no MIDI without a bond; unbonded drop ~5 s; fresh unit silent | | |
 | 105 | All 33 cues over BLE on Mac and iPad | | Middleware: |
@@ -260,7 +260,7 @@ in the sealed enclosure, standing on it, **before** deciding anything about shie
 | 108 | BLE latency median ≤ 20 ms, worst ≤ 40 ms (100 cues); USB still ≤ 10 ms | | Interval granted — Mac: · iPad: |
 | 109 | USB plugged in → USB only, no double triggers; unplugged → BLE next cue | | |
 | 110 | Range in sealed enclosure; 30-min soak at stage distance | | See table below |
-| 111 | Onboard LED (WL_GPIO0) mirrors the panel engine; no GP23/24/25/29 use | | |
+| 111 | Onboard LED (WL_GPIO0) mirrors the panel engine; no GP23/24/25/29 use | PASS | 2026-11-04, both boards, firmware tip `0ccda5e` (onboard-LED half; gpio call-site half is the T30 PROGRESS grep) |
 | 112 | Zero flash writes during play and across five reconnects | | Instrumented build commit: |
 | 113 | 9 V only works; USB only unchanged | | |
 | 114 | Channel change saves without freezing; survives power cycle and reflash (both boards, T31+) | | v1.0/v1.1 froze on every config write — PRD §10.1 |

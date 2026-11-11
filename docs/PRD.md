@@ -966,6 +966,8 @@ pico_sdk_import.cmake   SDK bootstrap shim, copied from $PICO_SDK_PATH/external/
 CMakeLists.txt          Target build plus the BUILD_HOST_TESTS host path
 CMakePresets.json       Generators and cache vars for the pico2, pico2_w (Phase 10), and host presets
 tests/                  Host test sources. Added in T02, restructured by T03.
+  harness/harness.cpp   Host test harness. Phase 10: also the host fake of
+                        midi/ble_midi.h, the fake transport (TEST-HARNESS.md).
 src/
   main.cpp            Init, main loop, tick dispatch
   config.h            ALL tunables and the command table. Single source of truth.
@@ -979,8 +981,12 @@ src/
     midi_out.h/.cpp   MIDI send; owns the active channel; routes each cue per §9.4
     transport.h/.cpp  Phase 10. Pure §9.4 policy: (usb_mounted, ble_ready) → USB | BLE | none
     ble_midi_packet.h/.cpp  Phase 10. Pure §9.3.2 encoder. Host-tested.
-    ble_midi.h/.cpp   Phase 10, pico2_w only. BTstack GATT server, advertising,
+    ble_midi.h        Phase 10, all builds. The BLE transport boundary: link
+                      requests in, link events out, packets in. No BTstack types.
+    ble_midi.cpp      Phase 10, pico2_w only (T38). BTstack GATT server, advertising,
                       Security Manager policy, bond store. Feeds link events.
+    ble_midi_stub.cpp Phase 10. The no-radio implementation of ble_midi.h: answers
+                      a pairing request with NoRadio. pico2, and pico2_w until T38.
     trackstomp.gatt   Phase 10. GATT database: GAP, GATT, BLE-MIDI. Nothing else.
     btstack_config.h  Phase 10. BTstack compile-time config (1 bond, BLE only).
     usb_descriptors.c Explicit descriptors, MIDI-only

@@ -1056,3 +1056,114 @@ None.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T32 — link-harness — 2026-11-10
+
+**Status:** complete
+**Branch:** task/T32-link-harness
+**Commit:** (this commit)
+**Criteria covered:** —
+**Tests:** 3 added (`link_transport_capture`, `harness_reset_unconditional`, `ble_no_radio_stub`), 26 total, all green from a clean `build-host`. pico2 and pico2_w `.uf2` produced from clean build directories, no compiler warnings, built one after the other with nothing else running (pico2 15:50:58–15:51:02, pico2_w 15:51:12–15:51:21). T10–T13 still pass (`led_pattern_engine`, `led_performance_patterns`, `led_chord_progress`, `led_channel_blink`), so criteria **41–56 still pass**. T26–T27 still pass (`switch_led_engine`, `switch_led_setup_chord`). `harness_lamp_trace()`, `harness_switch_trace()`, and every existing matcher are unchanged. No existing test file was edited.
+
+**Done:**
+`src/link/link_state.h/.cpp`, `src/midi/transport.h/.cpp`, `src/midi/ble_midi.h`, `src/midi/ble_midi_stub.cpp`, the fake transport in `tests/harness/harness.cpp`, the two matchers, and the exemplar `tests/test_link.cpp`. `docs/TEST-HARNESS.md`'s Phase 10 section now describes exactly what was built. `harness_reset()` now resets every module unconditionally (below).
+
+**API changes from the planning draft.** Proposed before any code and agreed with James on 2026-11-10:
+
+1. `link_on_request(LinkRequest)` is new. The draft had no entry point for the sequencer's request. The T32 skeleton forwards every request to the transport unchanged, so T35 can assert criterion 84 before T36 builds the window.
+2. `Ready` and `Lost` are real, not stubbed: `Ready` sets `link_ready()`, `Lost` clears it. T34 needs a ready link and runs before T36.
+3. `src/midi/ble_midi.h` is the transport boundary on every build: `ble_midi_request`, `ble_midi_poll_event`, `ble_midi_send`. The harness is its host implementation. `loop_dispatch` forwards `link_poll_request` → `ble_midi_request` and `ble_midi_poll_event` → `link_on_event`, the same code on host and target. `link_poll_request` has one queue and one consumer; tests never call it. `harness_link_event` queues the event in the fake and runs a pass; it does not call `link_on_event`.
+4. `TransportSend` is decoded by the harness's own parser from the bytes on the two fake wires. USB: a second copy of every byte `write_bytes` produces (`midi_out_poll_byte_for_harness`; `midi_out_poll_byte` is untouched). BLE: the packet given to `ble_midi_send`, note read from byte 3. Bytes that do not decode fail the test. `TransportSend` therefore lives in `harness.h`, not `transport.h`.
+5. `Transport` gains `None` as value 0. `transport_select(bool usb_mounted, bool ble_ready)` is the policy function.
+6. `link_boot_connect_pending()` became `link_boot_connected()`: a latch `link_state` can compute. "Played or dropped" is `ui`'s to track, since `ui` only reads link accessors.
+7. No `harness_link_ready()` wrappers. Tests call the link accessors directly.
+
+`link_reset()` is host-only and called by `harness_reset()`, like `midi_out_reset()`. `LinkPairingPhase` is `Closed, Advertising, Bonding, BondOk`.
+
+**Still stubbed.** The window never opens and the phase stays `Closed` (T36). Pairing events and `NoRadio` are ignored by `link_state` (T36). `link_boot_connected()` is false (T37). `transport_select` always returns `Usb` (T34); `midi_out_send` already calls it with `tud_mounted()` and `link_ready()`, so target behaviour is v1. The sequencer's behaviour is untouched (it gained only the host-only `sequencer_reset()`); T35 adds `sequencer_poll_link_request` and its hop in `loop_dispatch`. No constants were added to `config.h`.
+
+**Target stub.** `ble_midi_stub.cpp` is linked into pico2 and pico2_w. It answers `BeginPairing` with one `NoRadio` and drops packets. James chose this over a silent no-op so that pico2 stays "exactly v1 + Phase 9" at every loop commit once T36 handles `NoRadio`. This is T38's "stub transport reports no radio" bullet delivered early; T38 replaces the stub on pico2_w only. `tests/test_ble_stub.cpp` links the stub without the harness, because the harness defines the same three functions.
+
+**The link-request and transport-send matchers were proven to fail against deliberately wrong expectations.** With the firmware correct, `tests/test_link.cpp` was edited to assert a wrong `LinkRequest` list and, separately, a wrong `TransportSend`. Each failed with `file:line` and exit 1, and each was then corrected:
+
+- `harness_debug_link_request(LinkRequestKind::BeginPairing)` issued `BeginPairing`; the test required `EndPairing`: `tests/test_link.cpp:131 FAIL: link request[0] BeginPairing != EndPairing`
+- A real tap of button 10 with USB mounted sent note 20 on USB; the test required `{Ble, 20}`: `tests/test_link.cpp:35 FAIL: transport send[0] Usb:20 != Ble:20`
+
+Those two are the first line of each list below. Every case in this section was introduced alone, observed failing with `file:line` and exit 1, then restored. The restored files were checked byte-for-byte by SHA-256 and the suite re-run green. All 25 were run again after the `harness_reset()` change below, alone, with the same lines.
+
+`REQUIRE_LINK_REQUESTS`, wrong expectation in `tests/test_link.cpp`, firmware correct:
+- wrong kind, issued Begin, required End — `tests/test_link.cpp:131 FAIL: link request[0] BeginPairing != EndPairing`
+- wrong order, issued Begin, End, required End, Begin — `tests/test_link.cpp:133 FAIL: link request[0] BeginPairing != EndPairing`
+- short list, issued Begin, End, required Begin — `tests/test_link.cpp:133 FAIL: expected 1 LinkRequest(s), got 2`
+- issued Begin, `REQUIRE_NO_LINK_REQUESTS()` — `tests/test_link.cpp:131 FAIL: expected 0 LinkRequest(s), got 1`
+- none issued, required Begin — `tests/test_link.cpp:21 FAIL: expected 1 LinkRequest(s), got 0`
+
+`REQUIRE_TRANSPORT_SENDS`, wrong expectation against a real tap of button 10 with USB mounted, firmware correct:
+- wrong transport, required `{Ble, 20}` — `tests/test_link.cpp:35 FAIL: transport send[0] Usb:20 != Ble:20`
+- wrong note, required `{Usb, 21}` — `tests/test_link.cpp:35 FAIL: transport send[0] Usb:20 != Usb:21`
+- `REQUIRE_NO_TRANSPORT_SENDS()` — `tests/test_link.cpp:35 FAIL: expected 0 TransportSend(s), got 1`
+- one millisecond early, required `{Usb, 20}` at release + `DEBOUNCE_MS − 1` — `tests/test_link.cpp:32 FAIL: expected 1 TransportSend(s), got 0`
+- wrong order, sent 5 then 20, required 20 then 5 — `tests/test_link.cpp:55 FAIL: transport send[0] Usb:5 != Usb:20`
+
+Defects introduced in the firmware, test left correct:
+- `midi_out` sends the cue on USB and on BLE — `tests/test_link.cpp:35 FAIL: expected 1 TransportSend(s), got 2`, list `Usb:20 Ble:20`. This is the criterion 97 defect.
+- `midi_out` writes status `0xB0` — `tests/harness/harness.cpp:90 FAIL: USB wire at t=40 ms: status byte is not a Note On: 0xb0 0x14 0x1`
+- `midi_out` writes two bytes of the message — `tests/harness/harness.cpp:117 FAIL: USB wire at t=40 ms: ended inside a MIDI message: 0x90 0x14`
+- `loop_dispatch` does not forward events to `link_on_event` — `tests/test_link.cpp:63 FAIL: REQUIRE failed: link_ready()`
+- `loop_dispatch` does not forward requests to the transport — `tests/test_link.cpp:131 FAIL: expected 1 LinkRequest(s), got 0`
+- `link_on_event` ignores `Lost` — `tests/test_link.cpp:69 FAIL: REQUIRE failed: !link_ready()`
+- `link_on_request` drops the request — `tests/test_link.cpp:131 FAIL: expected 1 LinkRequest(s), got 0`
+- the no-radio stub does not answer — `tests/test_ble_stub.cpp:30 FAIL: ble_midi_poll_event(&event)`; it answers every poll — `tests/test_ble_stub.cpp:32 FAIL: !ble_midi_poll_event(&event)`
+
+BLE packets the parser must reject, seeded with `harness_debug_ble_packet`:
+- four bytes — `tests/harness/harness.cpp:314 FAIL: BLE wire at t=0 ms: packet is not 5 bytes (PRD §9.3.2): 0x80 0x80 0x90 0x5`
+- header bit 7 clear — `tests/harness/harness.cpp:317 FAIL: BLE wire at t=0 ms: header byte is not 10xxxxxx: 0x0 0x80 0x90 0x5 0x1`
+- timestamp bit 7 clear — `tests/harness/harness.cpp:320 FAIL: BLE wire at t=0 ms: timestamp byte has bit 7 clear: 0x80 0x0 0x90 0x5 0x1`
+- status `0xB0` — `tests/harness/harness.cpp:90 FAIL: BLE wire at t=0 ms: status byte is not a Note On: 0xb0 0x5 0x1`
+- note with bit 7 set — `tests/harness/harness.cpp:93 FAIL: BLE wire at t=0 ms: data byte has bit 7 set: 0x90 0x85 0x1`
+
+Capture overflow: 86 direct `midi_out_send` calls with no pipeline pass — `tests/harness/harness.cpp:102 FAIL: USB wire capture overflowed before it was drained`.
+
+A wire-parse failure is reported at a `harness.cpp` line, not the test's line, because it is raised inside the pipeline pass. The message carries the timestamp.
+
+**`harness_reset()` resets every module unconditionally.** `buttons`, `sequencer`, and `ui` reset themselves only when time runs backwards, so a `harness_reset()` called while the clock was already at 0 left them as they were. James asked for this to be fixed here. `buttons_reset()`, `sequencer_reset()`, and `ui_reset()` are host-only (`#ifdef HOST_TEST`), the same pattern as `link_reset()` and `midi_out_reset()`. Each calls the module's existing backwards-time reset and zeroes its `g_last_now`. `harness_reset()` calls them in that order, after releasing the pins and before `midi_out_reset()`. No target code changed: an incremental rebuild that recompiled the three files produced byte-identical `.uf2` files on both boards (SHA-256 before and after: pico2 `ddb01c10…`, pico2_w `30fa0df0…`).
+
+`tests/test_reset.cpp` (`harness_reset_unconditional`) leaves state dirty at t=0 without moving the clock, calls `harness_reset()`, and asserts power-up behaviour. Three blocks:
+
+1. Button 10 down at the very first scan, which `buttons` takes as already accepted. After the reset it must not be accepted and no tap may appear `DEBOUNCE_MS` later.
+2. `buttons_set_setup_active(true)`. After the reset a hold of button 1 must still emit `Hold` at `HOLD_MS`.
+3. `ui_indicate_channel(8)`. After the reset LED 8 and the panel lamp must stay off through the blink's lead gap.
+
+**The test was shown to fail without the new resets and pass with them.** Before the calls were added to `harness_reset()`: `tests/test_reset.cpp:23 FAIL: REQUIRE failed: !buttons_accepted_pressed(10)` (line 22 after an unused include was removed). After: exit 0. Then, with the calls in place, each was taken out again by script and restored (SHA-256 checked):
+
+- none of the three — `tests/test_reset.cpp:22 FAIL: REQUIRE failed: !buttons_accepted_pressed(10)`
+- none of the three, block 1 not dirtied so block 2 is reached — `FAIL: expected 1 ButtonEvent(s), got 0` at the `REQUIRE_BUTTON_EVENTS` of block 2 (line 41 as committed; the edited file printed 38)
+- none of the three, blocks 1 and 2 not dirtied so block 3 is reached — `FAIL: switch LEDs {8} (0010000000) != {} (0000000000)` at the first `REQUIRE_NO_SWITCH_LEDS` of block 3 (line 51 as committed; the edited file printed 47)
+- `buttons_reset()` alone removed — `tests/test_reset.cpp:22 FAIL: REQUIRE failed: !buttons_accepted_pressed(10)`
+- `ui_reset()` alone removed — `tests/test_reset.cpp:51 FAIL: switch LEDs {8} (0010000000) != {} (0000000000)`
+- `buttons_reset()` and `sequencer_reset()` removed, block 1 not dirtied — the block 2 failure again. Either of the two clears the setup flag; with both gone the hold is swallowed.
+- **`sequencer_reset()` alone removed — the test still passes.** No test can catch this one. Every change to the sequencer's state comes from a `ButtonEvent`, and no `ButtonEvent` can exist at t=0: an accepted edge needs `DEBOUNCE_MS` to elapse. The sequencer has no public mutator. So it cannot be left dirty at t=0, and before this change it was not actually affected by the gap. `sequencer_reset()` is called for symmetry and is covered only through block 2.
+
+The existing 25 tests did not change outcome with the unconditional resets.
+
+`clang-format` is clean on every source file. `clang-tidy -p build-host` is clean on every `src/**/*.cpp` and on `tests/harness/harness.cpp`, `tests/test_link.cpp`, `tests/test_reset.cpp`, and `tests/test_ble_stub.cpp`. `ble_midi_stub.cpp` is in `build-host/compile_commands.json` through `test_ble_stub`.
+
+**Tried and abandoned:**
+- Dirtying the reset test with a button pressed at t=0 after a first `harness_reset()`, or by entering setup. Neither can work. A press at t=0 is only a debounce candidate, and `harness_reset()` releases the pin, so the candidate flips back on the same pass with or without `buttons_reset()`. Setup needs `CHORD_HOLD_MS` of clock. The test uses a button down at the first scan and a direct `buttons_set_setup_active(true)` instead.
+- The first proposal had `midi_out` hand the harness a decoded note (`midi_out_poll_usb_send(uint8_t* note)`). James required the harness to parse the wire bytes itself, so the seam became a raw byte copy.
+- `std::deque` for the fake transport's event queue: `cert-err58-cpp` rejects it as a static. A `std::vector` is used.
+- The negative-control script edits `src/` files and restores them. One run overlapped the two firmware builds, so both targets were rebuilt afterwards, alone, from the restored sources. The build results recorded above are from a later clean build of each target, pico2 then pico2_w, with no script running.
+
+**Contradicts PRD:**
+None. The §12 file tree was amended in this commit: `ble_midi.h` is listed as the boundary on all builds, and `ble_midi_stub.cpp` and the host fake were added.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None. T30's hardware bullets (criterion 102 and the onboard-LED half of 111) were run by James on 2026-11-04 against firmware tip `0ccda5e`: PASS on both boards. Recorded in `docs/VALIDATION.md`.
+
+**Defects in earlier work fixed in this commit, at James's request:**
+- `docs/TASK-LIST.md` had no `Status: complete` line under T30 or T31. `docs/LOOP-PROMPT.md`'s precondition requires T30, T31, and T32 to be marked complete there. All three now carry the line.
+- `docs/LOOP-PROMPT.md` said new questions start at Q033. Q033 was used by T30. It now says Q034.
+- `docs/TEST-HARNESS.md` listed `PairChordHold` in `ButtonEventKind` before the code has it. The doc line now says T35 adds it.
+- `harness_reset()` did not reset `buttons`, `sequencer`, or `ui` when the clock was already at 0. Fixed and tested as described above.
+

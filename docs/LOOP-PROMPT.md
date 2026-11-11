@@ -44,7 +44,7 @@ These apply to every commit.
 ## Each iteration
 
 1. Read `docs/PROGRESS.md` to find the last completed task.
-2. Read `docs/QUESTIONS.md`. Any entry whose `ANSWER:` field is now filled in becomes the governing decision — apply it, mark that entry `[RESOLVED]`, and unblock its task. **Q027–Q032 are the Phase 10 planning assumptions; read them before raising anything new.** New questions start at Q033.
+2. Read `docs/QUESTIONS.md`. Any entry whose `ANSWER:` field is now filled in becomes the governing decision — apply it, mark that entry `[RESOLVED]`, and unblock its task. **Q027–Q032 are the Phase 10 planning assumptions; read them before raising anything new.** New questions start at Q034.
 3. Select the lowest-numbered task whose dependencies are met and which is not `[BLOCKED]`.
 4. Implement it. Follow the patterns established by tasks already completed. Write tests using the API in `docs/TEST-HARNESS.md`, imitating `tests/test_link.cpp` (T32) for link and transport tests and the existing exemplars for everything else. Do not invent a new test style.
 5. Verify per the bar in `AGENTS.md`, **including confirming 41–56 still pass and both firmware targets build.**

@@ -510,6 +510,7 @@ The loop runs **T33–T37**. **T38** (the BTstack transport itself) is also inte
 The loop must refuse to start until T30–T32 are complete, logged in `PROGRESS.md`, and `ctest` is green.
 
 ### T30 — pico2w-board-target
+- **Status:** complete
 - **Branch:** `task/T30-pico2w-board-target`
 - **Commit:** `T30: add pico2_w build target and move the onboard LED mirror to the CYW43`
 - **Depends on:** — (branch from `master`)
@@ -527,6 +528,7 @@ The loop must refuse to start until T30–T32 are complete, logged in `PROGRESS.
   - **On hardware:** a Pico 2 W running this build enumerates exactly as criteria 1 and 2, the per-switch LEDs and buttons behave as on the Pico 2, and the onboard LED mirrors the panel engine through a Setup Mode entry, channel blink and exit.
 
 ### T31 — flash-map
+- **Status:** complete
 - **Branch:** `task/T31-flash-map`
 - **Commit:** `T31: reserve the bond store and pin the config sector to a fixed offset`
 - **Depends on:** T30
@@ -545,6 +547,7 @@ The loop must refuse to start until T30–T32 are complete, logged in `PROGRESS.
   - **On hardware:** criterion 114 on both boards. Select channel 8 and exit → no freeze, cues on channel 8. Power-cycle → channel 8. Reflash by UF2 drag-and-drop → channel 8. Repeat the change through the 30 s timeout.
 
 ### T32 — link-harness
+- **Status:** complete
 - **Branch:** `task/T32-link-harness`
 - **Commit:** `T32: add the link state module skeleton and extend the harness with link and transport capture`
 - **Depends on:** T31
