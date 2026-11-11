@@ -307,3 +307,12 @@ bool sequencer_poll_setup_commit(uint8_t* out) {
     g_setup_commit_pending = false;
     return true;
 }
+
+#ifdef HOST_TEST
+// The same reset sequencer_tick performs when time runs backwards, without
+// waiting for it.
+void sequencer_reset() {
+    reset_sequencer();
+    g_last_now = 0;
+}
+#endif

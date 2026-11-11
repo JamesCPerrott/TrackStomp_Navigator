@@ -1,5 +1,7 @@
 #include "main.h"
 
+#include "link/link_state.h"
+#include "midi/ble_midi.h"
 #include "midi/midi_out.h"
 #include "sequencer/sequencer.h"
 #include "storage/config_store.h"
@@ -27,6 +29,16 @@ void loop_dispatch() {
     while (sequencer_poll_setup_commit(&channel)) {
         config_store_write_channel(channel);
         midi_out_set_channel(channel);
+    }
+    // Link half (PRD §12.2). T35 adds the sequencer's link requests →
+    // link_on_request ahead of these two.
+    LinkRequest request{};
+    while (link_poll_request(&request)) {
+        ble_midi_request(request);
+    }
+    LinkEvent event{};
+    while (ble_midi_poll_event(&event)) {
+        link_on_event(event);
     }
 }
 
@@ -68,6 +80,7 @@ int main() {
         const uint32_t now = to_ms_since_boot(get_absolute_time());
         buttons_scan(now);
         sequencer_tick(now);
+        link_tick(now);
         loop_dispatch();
         ui_tick(now);
         board_led_set(ui_lamp());

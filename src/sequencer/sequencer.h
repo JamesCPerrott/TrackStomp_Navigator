@@ -29,4 +29,8 @@ bool sequencer_poll_ui_event(UiEvent* out);
 bool sequencer_poll_ui_event_for_engine(UiEvent* out);
 bool sequencer_poll_setup_commit(uint8_t* out);
 
+#ifdef HOST_TEST
+void sequencer_reset(); // power-up state at t=0: IDLE, default channel, empty queues
+#endif
+
 #endif

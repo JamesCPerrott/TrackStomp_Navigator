@@ -329,3 +329,12 @@ uint32_t buttons_gpio_levels() {
     return gpio_get_all() & kButtonGpioMask;
 }
 #endif
+
+#ifdef HOST_TEST
+// The same re-initialisation buttons_scan performs when time runs backwards,
+// without waiting for it. g_accepted_seq keeps counting: consumers compare it
+// for change, not for value.
+void buttons_reset() {
+    init_from_gpio(0U, buttons_gpio_levels());
+}
+#endif

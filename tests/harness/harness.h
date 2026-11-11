@@ -3,6 +3,8 @@
 
 #include "config.h"
 #include "input/buttons.h"
+#include "link/link_state.h"
+#include "midi/transport.h"
 #include "sequencer/sequencer.h"
 
 #include <cstdint>
@@ -27,11 +29,27 @@ uint16_t harness_switch_leds();
 uint8_t harness_switch_led_count();
 void harness_clear_captures();
 
+// Link and transport (Phase 10). The harness is the host implementation of
+// midi/ble_midi.h, so loop_dispatch talks to a fake transport.
+struct TransportSend {
+    Transport transport;
+    uint8_t note;
+};
+
+void harness_set_usb_mounted(bool mounted);
+void harness_link_event(LinkEventKind kind);
+const std::vector<std::vector<uint8_t>>& harness_ble_packets();
+
 // T03 only — do not copy. Seeds capture buffers because the sequencer is a stub.
 void harness_debug_push_command(Command command);
 void harness_debug_push_ui_event(UiEvent event);
 void harness_debug_push_button_event(ButtonEvent event);
 void harness_debug_set_switch_leds(uint16_t mask);
+
+// T32 only — do not copy. Nothing requests pairing until T35 and nothing
+// sends on BLE until T34.
+void harness_debug_link_request(LinkRequestKind kind);
+void harness_debug_ble_packet(std::initializer_list<uint8_t> bytes);
 
 [[noreturn]] void harness_fail(const char* file, int line, const char* message);
 void harness_require(const char* file, int line, bool cond, const char* expr);
@@ -41,6 +59,10 @@ void harness_require_button_events(const char* file, int line,
                                    std::initializer_list<ButtonEvent> expected);
 void harness_require_lamp(const char* file, int line, bool expected);
 void harness_require_switch_leds(const char* file, int line, uint16_t expected);
+void harness_require_link_requests(const char* file, int line,
+                                   std::initializer_list<LinkRequest> expected);
+void harness_require_transport_sends(const char* file, int line,
+                                     std::initializer_list<TransportSend> expected);
 
 template <uint8_t N>
 constexpr uint16_t switch_led_mask() {
@@ -60,5 +82,12 @@ constexpr uint16_t switch_led_mask() {
 #define REQUIRE_SWITCH_LEDS(mask)  harness_require_switch_leds(__FILE__, __LINE__, mask)
 #define REQUIRE_NO_SWITCH_LEDS()   harness_require_switch_leds(__FILE__, __LINE__, 0U)
 #define SWITCH_LED(n)              switch_led_mask<static_cast<uint8_t>(n)>()
+
+// Link and transport (Phase 10).
+#define REQUIRE_LINK_REQUESTS(...) harness_require_link_requests(__FILE__, __LINE__, {__VA_ARGS__})
+#define REQUIRE_NO_LINK_REQUESTS() harness_require_link_requests(__FILE__, __LINE__, {})
+#define REQUIRE_TRANSPORT_SENDS(...)                                                               \
+    harness_require_transport_sends(__FILE__, __LINE__, {__VA_ARGS__})
+#define REQUIRE_NO_TRANSPORT_SENDS() harness_require_transport_sends(__FILE__, __LINE__, {})
 
 #endif
