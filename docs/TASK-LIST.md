@@ -565,6 +565,7 @@ The loop must refuse to start until T30–T32 are complete, logged in `PROGRESS.
 ## Loop tasks
 
 ### T33 — ble-midi-packet
+- **Status:** complete
 - **Branch:** `task/T33-ble-midi-packet`
 - **Commit:** `T33: add the BLE-MIDI packet encoder`
 - **Depends on:** T32
@@ -574,6 +575,7 @@ The loop must refuse to start until T30–T32 are complete, logged in `PROGRESS.
 - **Done when:** A pure function in `src/midi/ble_midi_packet.h/.cpp` encodes one Note On (and, behind `SEND_NOTE_OFF`, one Note Off) into the five-byte §9.3.2 layout from `(note, channel, now_ms)`. Tests cover the two worked examples in criterion 99, the 13-bit wrap at 0x2000, channels 1 and 10, and every note 0–32 from `CUE_TABLE`. Bit 7 is set on header and timestamp bytes for every input, and a test asserts it across a sweep of timestamps. No BTstack include.
 
 ### T34 — transport-arbitration
+- **Status:** complete
 - **Branch:** `task/T34-transport-arbitration`
 - **Commit:** `T34: route each cue to exactly one transport with USB taking priority`
 - **Depends on:** T33
@@ -583,6 +585,7 @@ The loop must refuse to start until T30–T32 are complete, logged in `PROGRESS.
 - **Done when:** The §9.4 table is the `transport` policy function, and `midi_out` calls it **per cue**. Tests drive `harness_set_usb_mounted()` and a ready/not-ready link through all four combinations, toggle USB between two cues of one sequence, and assert with `REQUIRE_TRANSPORT_SENDS` that every cue appears exactly once or not at all. Nothing is sent in `SETUP` or `LOCKED`. The USB path is byte-for-byte what T16 sends; the BLE path hands the T33 encoder's output to the transport seam. Existing `Command` captures are unchanged.
 
 ### T35 — pair-chord-detection
+- **Status:** complete
 - **Branch:** `task/T35-pair-chord-detection`
 - **Commit:** `T35: detect the 2+4 pair chord in setup with a strict continuous hold timer`
 - **Depends on:** T34
@@ -594,6 +597,7 @@ The loop must refuse to start until T30–T32 are complete, logged in `PROGRESS.
   Write 86 first. The most likely defect is a pair chord that leaks into performance mode and swallows Select (note 28).
 
 ### T36 — pairing-window
+- **Status:** complete
 - **Branch:** `task/T36-pairing-window`
 - **Commit:** `T36: implement the pairing window with suspended setup timeout and ignored taps`
 - **Depends on:** T35
@@ -603,6 +607,7 @@ The loop must refuse to start until T30–T32 are complete, logged in `PROGRESS.
 - **Done when:** `link_state` owns the window: `BEGIN_PAIRING` opens it (and issues the bond-clear + advertise request to the transport), `PAIRING_WINDOW_MS` closes it with `END_PAIRING`, `LinkEvent` *pairing started / succeeded / failed* drive the sub-state, and a second `BEGIN_PAIRING` restarts it. The sequencer polls `link_pairing_window_open()`: taps select nothing, the inactivity timeout is suspended and restarts from the window-closed edge, and setup exit issues `END_PAIRING` first. Every criterion in the list has a test that brackets its threshold (`− 1` / exact), and criterion 93 asserts the §7.3 flash-write rule is unchanged (`config_store_host_write_count`).
 
 ### T37 — switch-led-link-indications
+- **Status:** complete
 - **Branch:** `task/T37-switch-led-link-indications`
 - **Commit:** `T37: add pairing and boot link indications to the switch LEDs`
 - **Depends on:** T36

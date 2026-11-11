@@ -1,5 +1,7 @@
 #include "midi_out.h"
 
+#include "ble_midi.h"
+#include "ble_midi_packet.h"
 #include "config.h"
 #include "link/link_state.h"
 #include "transport.h"
@@ -64,6 +66,25 @@ void write_bytes(uint8_t const* data, uint32_t len) {
 #endif
 }
 
+void send_usb(uint8_t note) {
+    const uint8_t status = static_cast<uint8_t>(0x90U | (g_channel - 1U));
+    uint8_t const msg[3] = {status, note, MIDI_VELOCITY};
+    write_bytes(msg, 3U);
+    if (SEND_NOTE_OFF) {
+        uint8_t const off[3] = {static_cast<uint8_t>(0x80U | (g_channel - 1U)), note, 0};
+        write_bytes(off, 3U);
+    }
+}
+
+void send_ble(uint8_t note, uint32_t now_ms) {
+    const BleMidiPacket on = ble_midi_encode_note_on(note, g_channel, now_ms);
+    ble_midi_send(on.bytes, BLE_MIDI_PACKET_LENGTH);
+    if (SEND_NOTE_OFF) {
+        const BleMidiPacket off = ble_midi_encode_note_off(note, g_channel, now_ms);
+        ble_midi_send(off.bytes, BLE_MIDI_PACKET_LENGTH);
+    }
+}
+
 } // namespace
 
 void midi_out_set_channel(uint8_t channel) {
@@ -77,18 +98,14 @@ uint8_t midi_out_channel() {
     return g_channel;
 }
 
-void midi_out_send(uint8_t note) {
-    // T32: transport_select is a stub that always answers Usb. T34 adds the
-    // BLE path and the silent drop.
-    if (transport_select(usb_mounted(), link_ready()) != Transport::Usb) {
+void midi_out_send(uint8_t note, uint32_t now_ms) {
+    const Transport chosen = transport_select(usb_mounted(), link_ready());
+    if (chosen == Transport::Usb) {
+        send_usb(note);
         return;
     }
-    const uint8_t status = static_cast<uint8_t>(0x90U | (g_channel - 1U));
-    uint8_t const msg[3] = {status, note, MIDI_VELOCITY};
-    write_bytes(msg, 3U);
-    if (SEND_NOTE_OFF) {
-        uint8_t const off[3] = {static_cast<uint8_t>(0x80U | (g_channel - 1U)), note, 0};
-        write_bytes(off, 3U);
+    if (chosen == Transport::Ble) {
+        send_ble(note, now_ms);
     }
 }
 

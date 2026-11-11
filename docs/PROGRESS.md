@@ -1,4 +1,4 @@
-LOOP-STATUS: NOT STARTED — Phase 10
+LOOP-STATUS: HALTED — T33–T37 complete. Host suite green (criteria 84–101 and 4–82). Both firmware targets build. T38 is human-led; T39 is hardware.
 
 # Progress log
 
@@ -1166,4 +1166,135 @@ None. T30's hardware bullets (criterion 102 and the onboard-LED half of 111) wer
 - `docs/LOOP-PROMPT.md` said new questions start at Q033. Q033 was used by T30. It now says Q034.
 - `docs/TEST-HARNESS.md` listed `PairChordHold` in `ButtonEventKind` before the code has it. The doc line now says T35 adds it.
 - `harness_reset()` did not reset `buttons`, `sequencer`, or `ui` when the clock was already at 0. Fixed and tested as described above.
+
+## T33 — ble-midi-packet — 2026-11-10
+
+**Status:** complete
+**Branch:** task/T33-ble-midi-packet
+**Commit:** (this commit)
+**Criteria covered:** 99
+**Tests:** 1 added (`ble_midi_packet`), 27 total, all green. pico2 and pico2_w `.uf2` produced, no compiler warnings. T10–T13 still pass (`led_pattern_engine`, `led_performance_patterns`, `led_chord_progress`, `led_channel_blink`), so criteria **41–56 still pass**. T26–T27 still pass (`switch_led_engine`, `switch_led_setup_chord`). `harness_lamp_trace()`, `harness_switch_trace()`, and every existing matcher are unchanged. No existing test file was edited.
+
+**Done:**
+`src/midi/ble_midi_packet.h/.cpp` encodes one Note On, and one Note Off, into the five-byte §9.3.2 layout from `(note, channel, now_ms)`. Header byte is `10` plus timestamp bits 12..7. Timestamp byte has bit 7 set and carries bits 6..0. Status is `0x90 | (channel - 1)` for Note On and `0x80 | (channel - 1)` for Note Off. Note On velocity is `MIDI_VELOCITY`. The low 13 bits of `now_ms` are taken with `BLE_MIDI_TIMESTAMP_MASK`, so `0x2000` wraps to `0`. No BTstack, cyw43, or TinyUSB include. `midi_out` does not call the encoder yet; that is T34.
+
+`BLE_MIDI_TIMESTAMP_MASK` (`0x1FFF`) was added to `config.h`. The PRD §13 block already names it. It was not in the header; T32 recorded that it added no constants.
+
+**Tests assert:** the criterion 99 worked example `B5 BC 92 05 01`; the wrap bracket `0x1FFF` / `0x2000` / `0x2001`; channels 1 and 10; every note 0–32 and every `CUE_TABLE` note; bit 7 set and header bit 6 clear across every timestamp from 0 through `0x2000` and a set of values above the mask, with the 13 timestamp bits recovered from the two framing bytes. Note Off is locked at the same timestamp bytes, status `0x82` for channel 3, velocity 0. `SEND_NOTE_OFF` remains false.
+
+**Tried and abandoned:**
+Putting `BLE_MIDI_TIMESTAMP_MASK` in the existing `constexpr` alignment group made `clang-format` want to reflow that whole group. It sits in its own group, after `LED_PANEL_GPIO`, so the surrounding constants stay byte-for-byte.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:**
+Q034 — [ASSUMED]. Note Off velocity is 0, matching the USB Note Off in `midi_out`. §9.3.2 does not name it.
+
+**Defects noted in earlier tasks (not fixed):**
+`docs/QUESTIONS.md` still says new Phase 10 questions start at Q033. T32 moved that sentence in `docs/LOOP-PROMPT.md` to Q034, which is the number used here.
+
+## T34 — transport-arbitration — 2026-11-10
+
+**Status:** complete
+**Branch:** task/T34-transport-arbitration
+**Commit:** (this commit)
+**Criteria covered:** 97, 98 (transport half)
+**Tests:** 1 added (`transport_arbitration`), 28 total, all green. pico2 and pico2_w `.uf2` produced, no compiler warnings. T10–T13 still pass, so criteria **41–56 still pass**. T26–T27 still pass. `harness_lamp_trace()`, `harness_switch_trace()`, and the link and transport matchers are unchanged.
+
+**Done:**
+`transport_select` is the §9.4 table: USB mounted wins, otherwise BLE when `link_ready()`, otherwise `None`. `midi_out_send` calls it per cue. USB still writes the T16 three-byte Note On (and the Note Off only when `SEND_NOTE_OFF` is true). BLE hands `ble_midi_encode_note_on` to `ble_midi_send`. `None` returns without writing either wire.
+
+The BLE timestamp is the loop's `now` at resolution. `loop_dispatch(uint32_t now_ms)` and `midi_out_send(uint8_t note, uint32_t now_ms)` take it. The host pipeline passes `g_now_ms`. The target loop passes the same `now` it already gave `sequencer_tick`. `tests/test_midi_out.cpp` passes `0`; its USB byte assertions are unchanged. The pairing-window half of criterion 98 is T36: the window still never opens.
+
+**Tests assert:** the four policy combinations, directly and through a tap of button 10; the release edge at `DEBOUNCE_MS − 1` and the exact millisecond, on USB and on BLE; USB bytes `0x90`, note, `MIDI_VELOCITY` with an empty BLE capture when USB wins, including while BLE is ready; the encoder's five bytes and no USB bytes when BLE wins, on channel 1 and channel 10; a resolved cue with neither transport ready appears in `REQUIRE_COMMANDS` and not in `REQUIRE_TRANSPORT_SENDS`; two cues in a row, and a prefix-then-suffix, with USB unplugged or plugged between them; two identical BLE cues with different timestamps; a hold bracketed at `HOLD_MS − 1` / `HOLD_MS` on BLE, then a press during lockout that sends nothing; setup entry bracketed at `CHORD_HOLD_MS − 1` / `CHORD_HOLD_MS`, a press during the chord lockout, a channel tap, and a cue after exit that is sent again.
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
+## T35 — pair-chord-detection — 2026-11-10
+
+**Status:** complete
+**Branch:** task/T35-pair-chord-detection
+**Commit:** (this commit)
+**Criteria covered:** 84, 85, 86, 87
+**Tests:** 1 added (`pair_chord_detection`), 29 total, all green. pico2 and pico2_w `.uf2` produced, no compiler warnings. T05–T09 still pass (`tap_hold_classification`, `chord_detection`, `hold_lockout`, `sequence_state_machine`, `setup_mode_state`). T10–T13 still pass, so criteria **41–56 still pass**. T26–T27 still pass.
+
+**Done:**
+While setup is active, `input` applies the §6.5 rules to buttons `PAIR_CHORD_BUTTON_A` and `PAIR_CHORD_BUTTON_B` (2 and 4). Any overlap sets `pair_overlap` on both for the rest of those presses, so neither tap selects a channel. The timer starts at the second press's `press_time`, needs `PAIR_CHORD_HOLD_MS` (2000) of continuous overlap, clears on any release, and restarts in full on re-form. At the threshold one `ButtonEventKind::PairChordHold` is emitted. It is not emitted outside setup. Leaving setup clears an armed timer. A contact bounce that never passes debounce does not clear it.
+
+The sequencer, only in `SETUP`, turns that event into one `BEGIN_PAIRING` on `sequencer_poll_link_request`. `loop_dispatch` forwards it to `link_on_request` and then to the transport in the same pass. No MIDI is sent. The window itself is still T36: `link_on_request` still forwards the request unchanged.
+
+**Tests assert:** criterion 86 first — outside setup, 2 then 4 at +100 ms produces note 28 on USB at `HOLD_MS`, nothing at `HOLD_MS − 1`, and no pairing request through `100 + PAIR_CHORD_HOLD_MS` or after both are released. In setup, nothing at `PAIR_CHORD_HOLD_MS − 1` and one `BEGIN_PAIRING` at the threshold, with no second request on the next millisecond and no command on either wire. An abort at 1500 ms selects neither channel; a later clean tap of 2 does. A release at 1000 ms and re-press at 1500 ms is silent at the original deadline and at `3500 − 1`, and requests at 3500. A 20-edge bounce on button 4 does not move that deadline.
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
+## T36 — pairing-window — 2026-11-10
+
+**Status:** complete
+**Branch:** task/T36-pairing-window
+**Commit:** (this commit)
+**Criteria covered:** 88, 90, 91, 92, 93, 94, 98 (window half)
+**Tests:** 1 added (`pairing_window`), 30 total, all green. pico2 and pico2_w `.uf2` produced, no compiler warnings. T10–T13 still pass, so criteria **41–56 still pass**. T26–T27 still pass. T05–T09 still pass.
+
+**Done:**
+`link_state` owns the pairing window. `BEGIN_PAIRING` opens it for `PAIRING_WINDOW_MS` (60000), phase `Advertising`, and the request is still forwarded so the transport clears the bond and advertises. The deadline is taken from `link_tick`'s timestamp on that pass, which is the same millisecond: `loop_dispatch` runs after `link_tick`. A second `BEGIN_PAIRING` restarts that deadline and returns the phase to `Advertising`. `PairingStarted` moves to `Bonding` without moving the deadline. `PairingFailed` returns to `Advertising` without extending it. `PairingSucceeded` closes the window, leaves phase `BondOk`, and does not send `END_PAIRING`. The window deadline sends one `END_PAIRING` and phase `Closed`. `NoRadio` closes the window with no `END_PAIRING`. Events that arrive while the window is closed do not reopen it or clear `BondOk`.
+
+The sequencer polls `link_pairing_window_open()`. Taps of 1–10 select nothing and do not move inactivity. The inactivity check and the any-button refresh are both skipped while the window is open. `sequencer_observe_link()` runs at the end of `loop_dispatch`, after the link events of that pass, so a close at time T restarts inactivity at T rather than T+1. It polls `link_pairing_resume_generation()`, which increments only for bond success and the window deadline (Q035). On 6+9 exit the sequencer queues `END_PAIRING` before the §7.3 commit. `loop_dispatch` still applies the flash write before it forwards that request; both happen in the same pass.
+
+**Tests assert:** 88 first — during the window, taps of 1–10 emit no `SetupChannel` and no transport send, and there is no `SetupExit` at the entry inactivity deadline or 31 s after the taps, while the window is still open. 90 — `PairingSucceeded` closes the window to `BondOk` with no `END_PAIRING`, a later `PairingFailed` does not clear `BondOk`, and setup exits at `close + SETUP_TIMEOUT_MS` with no exit at `− 1` and no flash write. 91 — started then failed, still open, close and one `END_PAIRING` at the original `PAIRING_WINDOW_MS`, nothing at `− 1`. 92 — the same bracket with no pairing events, no second `END_PAIRING` on the next millisecond, setup still active at the close, and `SetupExit` exactly `SETUP_TIMEOUT_MS` later. 93 — exit during the window is `END_PAIRING` plus `SetupExit`; a tap of 7 during the window does not write flash or change the channel; a tap of 3 before the window writes once and commits channel 3. 94 — a second 2+4 is silent at `PAIR_CHORD_HOLD_MS − 1`, sends a second `BEGIN_PAIRING` at the threshold, the original deadline does not close the window, and the new deadline does, bracketed at `− 1`. `NoRadio` closes with no `END_PAIRING`, a later tap of 7 selects channel 7, and setup exits at the pre-window deadline (`opened + SETUP_TIMEOUT_MS`) rather than at the close plus another 30 s.
+
+**Tried and abandoned:**
+The first `NoRadio` assertion treated the deadline captured at setup entry as the live one. The release debounce of 6+9, and the opening pass of 2+4, both refresh inactivity while the window is still closed (`sequencer_tick` runs before `loop_dispatch` opens it). The test now brackets `opened + SETUP_TIMEOUT_MS`.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q035. `NoRadio` and a 6+9 `END_PAIRING` do not restart setup inactivity. Bond success and the window deadline do.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
+## T37 — switch-led-link-indications — 2026-11-10
+
+**Status:** complete
+**Branch:** task/T37-switch-led-link-indications
+**Commit:** (this commit)
+**Criteria covered:** 89, 95, 96, 100
+**Tests:** 1 added (`switch_led_link`), 31 total, all green. pico2 and pico2_w `.uf2` produced, no compiler warnings. T10–T13 still pass, so criteria **41–56 still pass**. T26–T27 still pass. T05–T09 still pass. The panel engine was not modified.
+
+**Done:**
+The per-switch engine gained priority 0, polled from `link_state`. While setup is active and the window is open, LEDs 2 and 4 flash in phase: advertising 500/500 from the on phase on the tick the window opens, bonding 100/100 from its own on phase, and a failed pairing returns to advertising from the on phase. `link_pairing_window_epoch()` increments on each `BEGIN_PAIRING`, so a second chord restarts that on phase even though the phase was already advertising. Bond OK is both LEDs solid for `LED_BOND_OK_MS`; the next tick is the setup channel blink restarted from its on phase. A window timeout does the same restart. 6+9 exit during the bond-OK flash turns all ten off. Taps during the window do not move the waveform. No new `UiEventKind`.
+
+The boot-link flash is priority 4. `link_boot_connected()` latches on the first *ready* with `now < BOOT_CONNECT_WINDOW_MS` and is never cleared except by reset (Q036). `ui` plays one 1000 ms flash on LEDs 2 and 4 after the boot channel indication ends, at most once. An accepted button event before the flash, or during it, drops it on that tick. A ready at 30000 ms or at 31 s does not latch. A later ready after the flash has played lights nothing.
+
+**Tests assert:** 95 first — ready at 1000 ms leaves the boot channel LED on through 1999 ms, LEDs 2 and 4 on at 2000 ms and 2999 ms, off at 3000 ms. A button-6 tap accepted before 2000 ms drops the flash; one accepted during it is off on that tick and stays off. 96 — ready at 31000 ms and at exactly 30000 ms leaves the latch clear and the LEDs off; ready at 29999 ms latches and flashes for 1000 ms; after the boot flash, *lost* then *ready* again leaves the LEDs off while the latch stays set. 89 — advertising edges at 499/500 and 999/1000, a tap of 7 does not restart them or show channel 7; bonding edges at 99/100 and 199/200; failure restarts the 500 ms on phase; bond OK solid through 1999 ms and the channel LED on at 2000 ms, which the pre-window clock would have had off, then that blink's own off edge 1000 ms later; exit during bond OK is dark on the release tick and stays dark; a second chord's fire tick is the on phase where the first window's clock would be off. 100 — `harness_switch_led_count() <= 2` on every checked sample, and every trace sample has at most two bits set.
+
+**Tried and abandoned:**
+Cancelling the boot-link flash was first asserted on the press debounce. An accepted `ButtonEvent` is the tap, which lands on the release debounce, matching the existing boot-channel cancel test. A tap of button 3 then lit LED 3 because it is a prefix; the cancel tests use button 6, which leaves the surface dark.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q036. The boot-connect window is `[0, 30000)`.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
 

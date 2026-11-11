@@ -20,6 +20,24 @@ constexpr uint8_t CHORD_BUTTON_A       = 6;
 constexpr uint8_t CHORD_BUTTON_B       = 9;
 constexpr uint8_t LED_PANEL_GPIO       = 16; // NPN switch, high = on
 
+// Low 13 bits of milliseconds since boot (§9.3.2). Wraps every 8192 ms.
+constexpr uint32_t BLE_MIDI_TIMESTAMP_MASK = 0x1FFFU;
+
+// Pair chord (§7.5). Setup only. Continuous overlap, the §6.5 rules.
+constexpr uint8_t PAIR_CHORD_BUTTON_A = 2;
+constexpr uint8_t PAIR_CHORD_BUTTON_B = 4;
+constexpr uint32_t PAIR_CHORD_HOLD_MS = 2000;
+
+// Pairing window (§7.5). link_state owns the deadline.
+constexpr uint32_t PAIRING_WINDOW_MS = 60000;
+
+// Switch-LED Bluetooth indications (§11.5.8).
+constexpr uint32_t LED_ADVERTISING_MS     = 500;
+constexpr uint32_t LED_BONDING_MS         = 100;
+constexpr uint32_t LED_BOND_OK_MS         = 2000;
+constexpr uint32_t LED_LINK_CONNECTED_MS  = 1000;
+constexpr uint32_t BOOT_CONNECT_WINDOW_MS = 30000;
+
 // LED timing
 constexpr uint32_t CHORD_LED_DELAY_MS   = 500; // silent window at chord start
 constexpr uint32_t CHORD_LED_FLASH_MS   = 125; // on and off; 250 ms period

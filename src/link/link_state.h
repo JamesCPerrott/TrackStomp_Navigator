@@ -42,6 +42,13 @@ bool link_poll_request(LinkRequest* out);  // to the transport
 // Read-only. The sequencer, ui, and midi_out poll these (QUESTIONS Q032).
 bool link_pairing_window_open();
 LinkPairingPhase link_pairing_phase();
+// Increments when a close restarts setup inactivity: bond success, or
+// PAIRING_WINDOW_MS (§8.5). NoRadio and END_PAIRING do not increment it
+// (Q035). Zero until the first such close. The sequencer polls it.
+uint32_t link_pairing_resume_generation();
+// Increments on each BEGIN_PAIRING. ui uses it to restart the advertising
+// waveform from its on phase when a second chord restarts the window.
+uint32_t link_pairing_window_epoch();
 bool link_ready();
 // Latched when the host first becomes ready within BOOT_CONNECT_WINDOW_MS of
 // power-up (§11.5.8). Never cleared; ui tracks whether the flash played.

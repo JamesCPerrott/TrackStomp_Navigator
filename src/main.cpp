@@ -20,18 +20,22 @@
 
 #include <cstdint>
 
-void loop_dispatch() {
+void loop_dispatch(uint32_t now_ms) {
     Command command{};
     while (sequencer_poll_command_for_midi(&command)) {
-        midi_out_send(command.note);
+        midi_out_send(command.note, now_ms);
     }
     uint8_t channel = 0;
     while (sequencer_poll_setup_commit(&channel)) {
         config_store_write_channel(channel);
         midi_out_set_channel(channel);
     }
-    // Link half (PRD §12.2). T35 adds the sequencer's link requests →
-    // link_on_request ahead of these two.
+    // Link half (PRD §12.2). The sequencer's request is applied, then the
+    // transport drain runs, in the same pass.
+    LinkRequest from_sequencer{};
+    while (sequencer_poll_link_request(&from_sequencer)) {
+        link_on_request(from_sequencer);
+    }
     LinkRequest request{};
     while (link_poll_request(&request)) {
         ble_midi_request(request);
@@ -40,6 +44,8 @@ void loop_dispatch() {
     while (ble_midi_poll_event(&event)) {
         link_on_event(event);
     }
+    // Same pass as the close, so inactivity restarts at this millisecond.
+    sequencer_observe_link(now_ms);
 }
 
 #ifndef HOST_TEST
@@ -81,7 +87,7 @@ int main() {
         buttons_scan(now);
         sequencer_tick(now);
         link_tick(now);
-        loop_dispatch();
+        loop_dispatch(now);
         ui_tick(now);
         board_led_set(ui_lamp());
         sleep_us(500);

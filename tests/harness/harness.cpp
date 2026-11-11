@@ -176,7 +176,7 @@ void pipeline() {
     buttons_scan(g_now_ms);
     sequencer_tick(g_now_ms);
     link_tick(g_now_ms);
-    loop_dispatch();
+    loop_dispatch(g_now_ms);
     ui_tick(g_now_ms);
     drain_captures();
     g_lamp_trace.push_back(ui_lamp() ? uint8_t{1} : uint8_t{0});
@@ -233,6 +233,8 @@ const char* button_kind_name(ButtonEventKind kind) {
         return "Hold";
     case ButtonEventKind::ChordHold:
         return "ChordHold";
+    case ButtonEventKind::PairChordHold:
+        return "PairChordHold";
     }
     return "unknown";
 }

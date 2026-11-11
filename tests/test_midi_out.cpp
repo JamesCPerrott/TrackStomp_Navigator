@@ -2,10 +2,12 @@
 #include "harness.h"
 #include "midi/midi_out.h"
 
+#include <cstdint>
+
 int main() {
     midi_out_reset();
     REQUIRE(midi_out_channel() == DEFAULT_MIDI_CHANNEL);
-    midi_out_send(20);
+    midi_out_send(20, 0);
     uint8_t b0 = 0;
     uint8_t b1 = 0;
     uint8_t b2 = 0;
@@ -19,8 +21,8 @@ int main() {
 
     midi_out_set_channel(8);
     REQUIRE(midi_out_channel() == 8U);
-    midi_out_send(5);
-    midi_out_send(5);
+    midi_out_send(5, 0);
+    midi_out_send(5, 0);
     REQUIRE(midi_out_poll_byte(&b0));
     REQUIRE(b0 == 0x97U);
     REQUIRE(midi_out_poll_byte(&b1));

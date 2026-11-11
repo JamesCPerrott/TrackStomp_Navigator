@@ -5,7 +5,10 @@
 
 void midi_out_set_channel(uint8_t channel);
 uint8_t midi_out_channel();
-void midi_out_send(uint8_t note);
+
+// now_ms is milliseconds since boot when the cue was resolved (§9.3.2).
+// The USB message does not carry it. The BLE packet does.
+void midi_out_send(uint8_t note, uint32_t now_ms);
 
 #ifdef HOST_TEST
 void midi_out_reset(); // also sets USB mounted

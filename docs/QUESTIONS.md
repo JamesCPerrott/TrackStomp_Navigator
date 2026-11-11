@@ -896,6 +896,72 @@ when radio init fails.
 
 ---
 
+## Q034 — [ASSUMED] — T33
+
+**Task:** T33 ble-midi-packet
+**Raised:** 2026-11-10
+**Type:** ASSUMPTION — Note Off velocity is not named in §9.3.2
+
+**Assumed:**
+`ble_midi_encode_note_off` writes velocity 0. Note On writes `MIDI_VELOCITY`. The Note Off
+encoder is always linked; a caller sends that packet only when `SEND_NOTE_OFF` is true.
+
+**Reasoning:**
+§9.3.2 specifies the Note On layout and says a Note Off, if `SEND_NOTE_OFF` is enabled, is a
+separate notification with its own header and timestamp. It does not name the Note Off velocity.
+`midi_out` already sends a USB Note Off with velocity 0.
+
+**Cost to reverse:** low — one byte in the encoder.
+
+**ANSWER (only if overriding):**
+
+---
+
+## Q035 — [ASSUMED] — T36
+
+**Task:** T36 pairing-window
+**Raised:** 2026-11-10
+**Type:** ASSUMPTION — which closes restart setup inactivity
+
+**Assumed:**
+Setup inactivity restarts only when the window closes because the bond succeeded or because
+`PAIRING_WINDOW_MS` elapsed. `NoRadio` closes the window with no `END_PAIRING` and does not
+restart the timer, so a board with no radio does not gain another `SETUP_TIMEOUT_MS`. `END_PAIRING`
+from a 6+9 exit does not restart it either; setup is already leaving.
+
+**Reasoning:**
+§8.5 names those two closes. §7.5 says a build with no radio closes immediately and taps resume,
+which is the timer that was already running, not a fresh 30 s. The sequencer polls
+`link_pairing_resume_generation()` for that edge because a falling `link_pairing_window_open()`
+is also what `NoRadio` looks like.
+
+**Cost to reverse:** low — bump the generation on `NoRadio` as well.
+
+**ANSWER (only if overriding):**
+
+---
+
+## Q036 — [ASSUMED] — T37
+
+**Task:** T37 switch-led-link-indications
+**Raised:** 2026-11-10
+**Type:** ASSUMPTION — whether the boot-connect window includes its last millisecond
+
+**Assumed:**
+`link_boot_connected()` latches when *ready* arrives with `now < BOOT_CONNECT_WINDOW_MS`. A ready
+at exactly 30000 ms does not latch. 31 s (criterion 96) is outside either reading.
+
+**Reasoning:**
+§11.5.8 says "within `BOOT_CONNECT_WINDOW_MS` of power-up". Every other window in this firmware
+is open while `now < start + length` and closes on the equal millisecond. The boot-connect window
+uses that same edge.
+
+**Cost to reverse:** low — one comparison in `link_on_event`.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._
