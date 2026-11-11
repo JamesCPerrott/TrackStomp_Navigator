@@ -46,6 +46,9 @@ LinkPairingPhase link_pairing_phase();
 // PAIRING_WINDOW_MS (§8.5). NoRadio and END_PAIRING do not increment it
 // (Q035). Zero until the first such close. The sequencer polls it.
 uint32_t link_pairing_resume_generation();
+// Increments on each BEGIN_PAIRING. ui uses it to restart the advertising
+// waveform from its on phase when a second chord restarts the window.
+uint32_t link_pairing_window_epoch();
 bool link_ready();
 // Latched when the host first becomes ready within BOOT_CONNECT_WINDOW_MS of
 // power-up (§11.5.8). Never cleared; ui tracks whether the flash played.

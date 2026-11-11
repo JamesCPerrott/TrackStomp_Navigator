@@ -1,4 +1,4 @@
-LOOP-STATUS: RUNNING — Phase 10
+LOOP-STATUS: HALTED — T33–T37 complete. Host suite green (criteria 84–101 and 4–82). Both firmware targets build. T38 is human-led; T39 is hardware.
 
 # Progress log
 
@@ -1268,6 +1268,32 @@ The first `NoRadio` assertion treated the deadline captured at setup entry as th
 None.
 
 **Questions raised:** Q035. `NoRadio` and a 6+9 `END_PAIRING` do not restart setup inactivity. Bond success and the window deadline do.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
+## T37 — switch-led-link-indications — 2026-11-10
+
+**Status:** complete
+**Branch:** task/T37-switch-led-link-indications
+**Commit:** (this commit)
+**Criteria covered:** 89, 95, 96, 100
+**Tests:** 1 added (`switch_led_link`), 31 total, all green. pico2 and pico2_w `.uf2` produced, no compiler warnings. T10–T13 still pass, so criteria **41–56 still pass**. T26–T27 still pass. T05–T09 still pass. The panel engine was not modified.
+
+**Done:**
+The per-switch engine gained priority 0, polled from `link_state`. While setup is active and the window is open, LEDs 2 and 4 flash in phase: advertising 500/500 from the on phase on the tick the window opens, bonding 100/100 from its own on phase, and a failed pairing returns to advertising from the on phase. `link_pairing_window_epoch()` increments on each `BEGIN_PAIRING`, so a second chord restarts that on phase even though the phase was already advertising. Bond OK is both LEDs solid for `LED_BOND_OK_MS`; the next tick is the setup channel blink restarted from its on phase. A window timeout does the same restart. 6+9 exit during the bond-OK flash turns all ten off. Taps during the window do not move the waveform. No new `UiEventKind`.
+
+The boot-link flash is priority 4. `link_boot_connected()` latches on the first *ready* with `now < BOOT_CONNECT_WINDOW_MS` and is never cleared except by reset (Q036). `ui` plays one 1000 ms flash on LEDs 2 and 4 after the boot channel indication ends, at most once. An accepted button event before the flash, or during it, drops it on that tick. A ready at 30000 ms or at 31 s does not latch. A later ready after the flash has played lights nothing.
+
+**Tests assert:** 95 first — ready at 1000 ms leaves the boot channel LED on through 1999 ms, LEDs 2 and 4 on at 2000 ms and 2999 ms, off at 3000 ms. A button-6 tap accepted before 2000 ms drops the flash; one accepted during it is off on that tick and stays off. 96 — ready at 31000 ms and at exactly 30000 ms leaves the latch clear and the LEDs off; ready at 29999 ms latches and flashes for 1000 ms; after the boot flash, *lost* then *ready* again leaves the LEDs off while the latch stays set. 89 — advertising edges at 499/500 and 999/1000, a tap of 7 does not restart them or show channel 7; bonding edges at 99/100 and 199/200; failure restarts the 500 ms on phase; bond OK solid through 1999 ms and the channel LED on at 2000 ms, which the pre-window clock would have had off, then that blink's own off edge 1000 ms later; exit during bond OK is dark on the release tick and stays dark; a second chord's fire tick is the on phase where the first window's clock would be off. 100 — `harness_switch_led_count() <= 2` on every checked sample, and every trace sample has at most two bits set.
+
+**Tried and abandoned:**
+Cancelling the boot-link flash was first asserted on the press debounce. An accepted `ButtonEvent` is the tap, which lands on the release debounce, matching the existing boot-channel cancel test. A tap of button 3 then lit LED 3 because it is a prefix; the cancel tests use button 6, which leaves the surface dark.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q036. The boot-connect window is `[0, 30000)`.
 
 **Defects noted in earlier tasks (not fixed):**
 None.

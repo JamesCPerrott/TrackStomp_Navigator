@@ -171,6 +171,10 @@ if (BUILD_HOST_TESTS)
     target_link_libraries(test_pairing_window PRIVATE harness)
     add_test(NAME pairing_window COMMAND test_pairing_window)
 
+    add_executable(test_switch_link tests/test_switch_link.cpp)
+    target_link_libraries(test_switch_link PRIVATE harness)
+    add_test(NAME switch_led_link COMMAND test_switch_link)
+
     add_executable(test_reset tests/test_reset.cpp)
     target_link_libraries(test_reset PRIVATE harness)
     add_test(NAME harness_reset_unconditional COMMAND test_reset)

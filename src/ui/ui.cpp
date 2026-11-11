@@ -2,6 +2,7 @@
 
 #include "config.h"
 #include "input/buttons.h"
+#include "link/link_state.h"
 #include "sequencer/sequencer.h"
 
 #ifndef HOST_TEST
@@ -156,6 +157,7 @@ bool resolve_stack(uint32_t now) {
 }
 
 enum class SwitchConfirm : uint8_t { None, Hold, Pair, SelfPair, Standalone };
+enum class PairLeds : uint8_t { None, Advertising, Bonding, BondOk };
 
 uint16_t g_switch_mask       = 0;
 SwitchConfirm g_sw_confirm   = SwitchConfirm::None;
@@ -173,6 +175,14 @@ uint8_t g_sw_setup_channel   = 0;
 uint8_t g_sw_boot_channel    = 0;
 uint32_t g_sw_setup_start    = 0;
 uint32_t g_sw_boot_start     = 0;
+PairLeds g_sw_pair           = PairLeds::None;
+uint32_t g_sw_pair_start     = 0;
+uint32_t g_sw_pair_epoch     = 0;
+bool g_sw_bond_ok_done       = false;
+bool g_sw_link_pending       = false;
+bool g_sw_link_showing       = false;
+bool g_sw_link_spent         = false;
+uint32_t g_sw_link_start     = 0;
 
 void reset_switch() {
     g_switch_mask       = 0;
@@ -191,6 +201,14 @@ void reset_switch() {
     g_sw_boot_channel   = 0;
     g_sw_setup_start    = 0;
     g_sw_boot_start     = 0;
+    g_sw_pair           = PairLeds::None;
+    g_sw_pair_start     = 0;
+    g_sw_pair_epoch     = 0;
+    g_sw_bond_ok_done   = false;
+    g_sw_link_pending   = false;
+    g_sw_link_showing   = false;
+    g_sw_link_spent     = false;
+    g_sw_link_start     = 0;
 }
 
 uint16_t switch_led_bit(uint8_t id) {
@@ -215,6 +233,13 @@ void cancel_switch_on_accepted_event() {
         clear_switch_confirmation();
     }
     g_sw_boot = false;
+    // A press before the boot-link flash starts drops it; one during it
+    // extinguishes it. Pairing indications are not confirmations (§11.5.8).
+    if (g_sw_link_pending || g_sw_link_showing) {
+        g_sw_link_pending = false;
+        g_sw_link_showing = false;
+        g_sw_link_spent   = true;
+    }
 }
 
 void start_switch_boot(uint8_t channel, uint32_t now) {
@@ -339,9 +364,103 @@ uint16_t chord_progress_mask(uint32_t now) {
     return 0U;
 }
 
+uint16_t pair_led_mask() {
+    return static_cast<uint16_t>(switch_led_bit(PAIR_CHORD_BUTTON_A) |
+                                 switch_led_bit(PAIR_CHORD_BUTTON_B));
+}
+
+// Priority 0. Polled from link_state; a tap during the window is not an event
+// this indication watches, so it neither cancels nor restarts the waveform.
+void sync_pair_leds(uint32_t now) {
+    if (!g_sw_setup) {
+        g_sw_pair         = PairLeds::None;
+        g_sw_bond_ok_done = false;
+        return;
+    }
+    const bool window            = link_pairing_window_open();
+    const LinkPairingPhase phase = link_pairing_phase();
+    const uint32_t epoch         = link_pairing_window_epoch();
+    if (window && phase == LinkPairingPhase::Advertising) {
+        if (g_sw_pair != PairLeds::Advertising || epoch != g_sw_pair_epoch) {
+            g_sw_pair         = PairLeds::Advertising;
+            g_sw_pair_start   = now;
+            g_sw_pair_epoch   = epoch;
+            g_sw_bond_ok_done = false;
+        }
+        return;
+    }
+    if (window && phase == LinkPairingPhase::Bonding) {
+        if (g_sw_pair != PairLeds::Bonding) {
+            g_sw_pair       = PairLeds::Bonding;
+            g_sw_pair_start = now;
+        }
+        return;
+    }
+    if (phase == LinkPairingPhase::BondOk && !g_sw_bond_ok_done) {
+        if (g_sw_pair != PairLeds::BondOk) {
+            g_sw_pair       = PairLeds::BondOk;
+            g_sw_pair_start = now;
+        }
+        if ((now - g_sw_pair_start) >= LED_BOND_OK_MS) {
+            g_sw_pair         = PairLeds::None;
+            g_sw_bond_ok_done = true;
+            g_sw_setup_start  = now;
+        }
+        return;
+    }
+    if (g_sw_pair == PairLeds::Advertising || g_sw_pair == PairLeds::Bonding) {
+        g_sw_pair        = PairLeds::None;
+        g_sw_setup_start = now;
+    }
+}
+
+uint16_t pair_led_sample(uint32_t now) {
+    if (g_sw_pair == PairLeds::Advertising) {
+        if (flash_on(now, g_sw_pair_start, LED_ADVERTISING_MS)) {
+            return pair_led_mask();
+        }
+        return 0U;
+    }
+    if (g_sw_pair == PairLeds::Bonding) {
+        if (flash_on(now, g_sw_pair_start, LED_BONDING_MS)) {
+            return pair_led_mask();
+        }
+        return 0U;
+    }
+    if (g_sw_pair == PairLeds::BondOk) {
+        return pair_led_mask();
+    }
+    return 0U;
+}
+
+// Priority 4, beside cue confirmation. Waits out the boot channel indication.
+// An accepted press drops it, including one that arrives before it starts.
+void sync_boot_link(uint32_t now) {
+    if (!g_sw_link_spent && !g_sw_link_pending && !g_sw_link_showing && link_boot_connected()) {
+        g_sw_link_pending = true;
+    }
+    if (g_sw_link_showing) {
+        if ((now - g_sw_link_start) >= LED_LINK_CONNECTED_MS) {
+            g_sw_link_showing = false;
+            g_sw_link_spent   = true;
+        }
+        return;
+    }
+    if (!g_sw_link_pending || g_sw_boot) {
+        return;
+    }
+    g_sw_link_pending = false;
+    g_sw_link_showing = true;
+    g_sw_link_start   = now;
+}
+
 uint16_t resolve_switch(uint32_t now) {
     expire_switch_confirmation(now);
     expire_switch_boot(now);
+    sync_pair_leds(now);
+    if (g_sw_pair != PairLeds::None) {
+        return pair_led_sample(now);
+    }
     if (g_sw_setup) {
         if (flash_on(now, g_sw_setup_start, LED_SETUP_BLINK_MS)) {
             return switch_led_bit(g_sw_setup_channel);
@@ -353,6 +472,10 @@ uint16_t resolve_switch(uint32_t now) {
     }
     if (g_sw_confirm != SwitchConfirm::None) {
         return switch_confirmation_mask(now);
+    }
+    sync_boot_link(now);
+    if (g_sw_link_showing) {
+        return pair_led_mask();
     }
     if (g_sw_pending && flash_on(now, g_sw_pending_start, LED_PENDING_FLASH_MS)) {
         return switch_led_bit(g_sw_pending_id);

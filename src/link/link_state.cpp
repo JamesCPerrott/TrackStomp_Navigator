@@ -18,6 +18,8 @@ LinkPairingPhase g_phase    = LinkPairingPhase::Closed;
 uint32_t g_window_deadline  = 0;
 uint32_t g_now              = 0;
 uint32_t g_resume_gen       = 0;
+uint32_t g_window_epoch     = 0;
+bool g_boot_connected       = false;
 
 void push_request(LinkRequest request) {
     if (g_request_count >= kQueueSize) {
@@ -32,6 +34,7 @@ void open_window() {
     g_window_open     = true;
     g_phase           = LinkPairingPhase::Advertising;
     g_window_deadline = g_now + PAIRING_WINDOW_MS;
+    g_window_epoch += 1U;
 }
 
 // Bond success and the window deadline. NoRadio and END_PAIRING do not.
@@ -78,6 +81,10 @@ void link_on_event(LinkEvent event) {
     switch (event.kind) {
     case LinkEventKind::Ready:
         g_ready = true;
+        // [0, BOOT_CONNECT_WINDOW_MS). A ready at the deadline is outside (Q036).
+        if (!g_boot_connected && g_now < BOOT_CONNECT_WINDOW_MS) {
+            g_boot_connected = true;
+        }
         break;
     case LinkEventKind::Lost:
         g_ready = false;
@@ -130,12 +137,16 @@ uint32_t link_pairing_resume_generation() {
     return g_resume_gen;
 }
 
+uint32_t link_pairing_window_epoch() {
+    return g_window_epoch;
+}
+
 bool link_ready() {
     return g_ready;
 }
 
 bool link_boot_connected() {
-    return false;
+    return g_boot_connected;
 }
 
 #ifdef HOST_TEST
@@ -148,5 +159,7 @@ void link_reset() {
     g_window_deadline = 0;
     g_now             = 0;
     g_resume_gen      = 0;
+    g_window_epoch    = 0;
+    g_boot_connected  = false;
 }
 #endif

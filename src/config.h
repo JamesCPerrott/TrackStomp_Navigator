@@ -31,6 +31,13 @@ constexpr uint32_t PAIR_CHORD_HOLD_MS = 2000;
 // Pairing window (§7.5). link_state owns the deadline.
 constexpr uint32_t PAIRING_WINDOW_MS = 60000;
 
+// Switch-LED Bluetooth indications (§11.5.8).
+constexpr uint32_t LED_ADVERTISING_MS     = 500;
+constexpr uint32_t LED_BONDING_MS         = 100;
+constexpr uint32_t LED_BOND_OK_MS         = 2000;
+constexpr uint32_t LED_LINK_CONNECTED_MS  = 1000;
+constexpr uint32_t BOOT_CONNECT_WINDOW_MS = 30000;
+
 // LED timing
 constexpr uint32_t CHORD_LED_DELAY_MS   = 500; // silent window at chord start
 constexpr uint32_t CHORD_LED_FLASH_MS   = 125; // on and off; 250 ms period

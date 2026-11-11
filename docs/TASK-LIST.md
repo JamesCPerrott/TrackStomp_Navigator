@@ -607,6 +607,7 @@ The loop must refuse to start until T30–T32 are complete, logged in `PROGRESS.
 - **Done when:** `link_state` owns the window: `BEGIN_PAIRING` opens it (and issues the bond-clear + advertise request to the transport), `PAIRING_WINDOW_MS` closes it with `END_PAIRING`, `LinkEvent` *pairing started / succeeded / failed* drive the sub-state, and a second `BEGIN_PAIRING` restarts it. The sequencer polls `link_pairing_window_open()`: taps select nothing, the inactivity timeout is suspended and restarts from the window-closed edge, and setup exit issues `END_PAIRING` first. Every criterion in the list has a test that brackets its threshold (`− 1` / exact), and criterion 93 asserts the §7.3 flash-write rule is unchanged (`config_store_host_write_count`).
 
 ### T37 — switch-led-link-indications
+- **Status:** complete
 - **Branch:** `task/T37-switch-led-link-indications`
 - **Commit:** `T37: add pairing and boot link indications to the switch LEDs`
 - **Depends on:** T36

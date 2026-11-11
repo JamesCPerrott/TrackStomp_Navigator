@@ -941,6 +941,27 @@ is also what `NoRadio` looks like.
 
 ---
 
+## Q036 — [ASSUMED] — T37
+
+**Task:** T37 switch-led-link-indications
+**Raised:** 2026-11-10
+**Type:** ASSUMPTION — whether the boot-connect window includes its last millisecond
+
+**Assumed:**
+`link_boot_connected()` latches when *ready* arrives with `now < BOOT_CONNECT_WINDOW_MS`. A ready
+at exactly 30000 ms does not latch. 31 s (criterion 96) is outside either reading.
+
+**Reasoning:**
+§11.5.8 says "within `BOOT_CONNECT_WINDOW_MS` of power-up". Every other window in this firmware
+is open while `now < start + length` and closes on the equal millisecond. The boot-connect window
+uses that same edge.
+
+**Cost to reverse:** low — one comparison in `link_on_event`.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._
