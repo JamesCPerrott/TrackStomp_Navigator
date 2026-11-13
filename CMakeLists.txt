@@ -20,6 +20,9 @@ if (BUILD_HOST_TESTS)
         src/midi/midi_out.cpp
         src/midi/transport.cpp
         src/midi/ble_midi_packet.cpp
+        # Host clang-tidy sees this file. The BTstack body is compiled out
+        # under HOST_TEST; the harness supplies ble_midi_*.
+        src/midi/ble_midi.cpp
         src/storage/config_store.cpp
         src/storage/flash_bank_map.cpp
         src/board/board_led.cpp
@@ -229,8 +232,6 @@ else()
         src/midi/midi_out.cpp
         src/midi/transport.cpp
         src/midi/ble_midi_packet.cpp
-        # No radio on either board until T38 replaces this on pico2_w.
-        src/midi/ble_midi_stub.cpp
         src/midi/usb_descriptors.c
         src/storage/config_store.cpp
         src/ui/ui.cpp
@@ -272,6 +273,33 @@ else()
             # flash_bank_map.cpp static_asserts the tie.
             PICO_FLASH_BANK_STORAGE_OFFSET=0x3FD000
             PICO_FLASH_BANK_TOTAL_SIZE=0x2000
+        )
+        target_sources(trackstomp_navigator PRIVATE
+            src/midi/ble_midi.cpp
+        )
+        target_link_libraries(trackstomp_navigator
+            pico_btstack_ble
+            pico_btstack_cyw43
+        )
+        pico_btstack_make_gatt_header(trackstomp_navigator PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/midi/trackstomp.gatt")
+        add_custom_command(TARGET trackstomp_navigator POST_BUILD
+            COMMAND ${CMAKE_COMMAND}
+                -DGATT_HEADER=${CMAKE_CURRENT_BINARY_DIR}/generated/trackstomp_navigator_trackstomp_gatt_header/trackstomp.h
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_gatt_services.cmake
+            VERBATIM
+        )
+        if (DEBUG_UART)
+            # btstack_cyw43.c checks this before it includes btstack_config.h.
+            target_compile_definitions(trackstomp_navigator PRIVATE WANT_HCI_DUMP=1)
+            target_link_options(trackstomp_navigator PRIVATE
+                "LINKER:--wrap=flash_range_erase"
+                "LINKER:--wrap=flash_range_program"
+            )
+        endif()
+    else()
+        target_sources(trackstomp_navigator PRIVATE
+            src/midi/ble_midi_stub.cpp
         )
     endif()
 

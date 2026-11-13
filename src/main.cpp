@@ -74,6 +74,11 @@ int main() {
     }
 #endif
     board_led_init(radio_ok);
+    // btstack_cyw43_init already ran inside cyw43_arch_init. Q033: a failed
+    // radio init never calls this, so BeginPairing answers NoRadio.
+    if (radio_ok) {
+        ble_midi_init();
+    }
 #endif
     static_cast<void>(CUE_TABLE);
     for (;;) {

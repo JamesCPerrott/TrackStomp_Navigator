@@ -962,6 +962,28 @@ uses that same edge.
 
 ---
 
+## Q037 — [ASSUMED] — T38
+
+**Task:** T38 ble-midi-transport
+**Raised:** 2026-11-12
+**Type:** ASSUMPTION — connection-parameter request fields the PRD does not name
+
+**Assumed:**
+`gap_request_connection_parameter_update` uses latency 0 and a supervision timeout of 500
+(5 s). The interval is `BLE_CONN_INTERVAL_MIN_UNITS`–`BLE_CONN_INTERVAL_MAX_UNITS`. The host
+may grant a different interval; the pedal does not disconnect for that.
+
+**Reasoning:**
+§9.3.3 names the interval only. Latency 0 is what a MIDI peripheral wants. A 5 s supervision
+timeout is inside BTstack's default accepted range and is far above the 30 ms minimum the
+15 ms interval requires. Criterion 108 records whatever interval the host actually grants.
+
+**Cost to reverse:** low — two arguments at the request call.
+
+**ANSWER (only if overriding):**
+
+---
+
 ## Resolved
 
 _None yet._
