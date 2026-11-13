@@ -4,9 +4,9 @@
 #include <cstdint>
 #include <iostream>
 
-// The no-radio transport that both firmware targets link until T38
-// (PRD §7.5). This test links ble_midi_stub.cpp directly and not the
-// harness, which is the host implementation of the same header.
+// The no-radio transport the pico2 firmware links (PRD §7.5). This test
+// links ble_midi_stub.cpp directly and not the harness, which is the host
+// implementation of the same header. pico2_w links ble_midi.cpp instead.
 
 #define CHECK(cond)                                                                                \
     do {                                                                                           \

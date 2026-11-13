@@ -38,6 +38,13 @@ constexpr uint32_t LED_BOND_OK_MS         = 2000;
 constexpr uint32_t LED_LINK_CONNECTED_MS  = 1000;
 constexpr uint32_t BOOT_CONNECT_WINDOW_MS = 30000;
 
+// BLE transport (§9.3).
+constexpr uint8_t BLE_MAX_BONDS                = 1;
+constexpr uint32_t BLE_ADV_INTERVAL_MS         = 100;
+constexpr uint16_t BLE_CONN_INTERVAL_MIN_UNITS = 9;  // x 1.25 ms = 11.25 ms
+constexpr uint16_t BLE_CONN_INTERVAL_MAX_UNITS = 12; // x 1.25 ms = 15 ms
+constexpr uint32_t BLE_UNBONDED_DROP_MS        = 5000;
+
 // LED timing
 constexpr uint32_t CHORD_LED_DELAY_MS   = 500; // silent window at chord start
 constexpr uint32_t CHORD_LED_FLASH_MS   = 125; // on and off; 250 ms period

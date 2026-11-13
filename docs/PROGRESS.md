@@ -1298,3 +1298,68 @@ None.
 **Defects noted in earlier tasks (not fixed):**
 None.
 
+## T38 — ble-midi-transport — 2026-11-12
+
+**Status:** coding done; not complete. The Mac smoke test in the task list has not been run, so T38 stays open.
+**Branch:** task/T38-ble-midi-transport
+**Commit:** (not committed)
+**Criteria covered:** none yet. 103–113 are T39, after the smoke test.
+**Tests:** no new host test. 31 total, all green, including `ble_no_radio_stub` and T10–T13 (criteria 41–56). Release `pico2` and `pico2_w` `.uf2` produced. A `DEBUG_UART=ON` `pico2_w` link placed `__wrap_flash_range_erase` and `__wrap_flash_range_program` in SRAM; that cache was set back to `OFF` afterwards. `clang-format` clean. `clang-tidy -p build-host` clean on the changed C++ files. `clang-tidy -p build-w` on `ble_midi.cpp` needs the ARM libstdc++ include path added by hand; with that, no bugprone, cert, or analyzer findings.
+
+**Done:**
+`pico2_w` links `pico_btstack_ble` and `pico_btstack_cyw43` and replaces the stub with `src/midi/ble_midi.cpp`. `pico2` still links the stub, so a 2+4 chord gets one `NoRadio`. The GATT database is GAP (name TrackStomp Navigator), GATT, and the BLE-MIDI service; the build fails if the generated header contains any other service. Just Works is confirmed only while `link_pairing_window_open()` is true. *Ready* requires encryption from the bond and a notification subscription. `BEGIN_PAIRING` clears the one bond. Notifications are the five-byte T33 packet, queued four deep and dropped when full. Under `DEBUG_UART`, bond-bank erase and program counts print on the UART when they change.
+
+**Tried and abandoned:**
+Defining `ENABLE_PRINTF_HEXDUMP` only under `DEBUG_UART` does not compile. The SDK always builds `hci_dump_embedded_stdout.c`, which refuses to build without that macro. The macro is now always on. `ENABLE_LOG_INFO`, `ENABLE_LOG_ERROR`, and `WANT_HCI_DUMP` stay debug-only, and the release ELF does not contain the dump functions.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** Q037. The connection-parameter request uses latency 0 and supervision timeout 500 (5 s). The host may grant another interval; the pedal does not disconnect for that.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
+## T38 — ble-midi-transport — 2026-11-12 (Mac smoke, first pass)
+
+**Status:** still open. Pairing from Audio MIDI Setup works. Two observations below; one is fixed in the tree, the reconnect click is not a firmware change.
+**Branch:** task/T38-ble-midi-transport
+**Commit:** (not committed)
+
+**Done:**
+`request_send` set `g_send_waiting` after `att_server_request_can_send_now_event`. BTstack runs the can-send callback inside that call when an ACL buffer is free, `on_can_send` clears the flag, and the assignment then sets it again. The first notification goes out and every later note stays in the four-deep queue until disconnect, which matched the bench: one Note On, then silence until MIDI Studio disconnect/connect. The flag is now set before the call. `build-w/trackstomp_navigator.uf2` was rebuilt.
+
+**Mac reconnect:**
+After a power cycle the bond is still there (Connect works without the pairing window), and the pedal is advertising. macOS does not open the connection by itself. Criterion 106's "reconnects without re-pairing" is this click in MIDI Studio → Bluetooth Configuration, not a new pair. The pedal cannot start the connection; it can only advertise. Left as observed host behavior for T39.
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+
+## T38 — ble-midi-transport — 2026-11-12 (Mac smoke, pass)
+
+**Status:** smoke passed on the rebuilt `pico2_w` image. T38 is not closed: the branch is still uncommitted, and criteria 103–113 stay with T39.
+**Branch:** task/T38-ble-midi-transport
+**Commit:** (not committed)
+
+**Done:**
+The Mac bonds from Audio MIDI Setup, reconnects after a power cycle without a new pair, and keeps receiving commands over BLE MIDI. That is the task-list smoke test: pair, Note On in a MIDI monitor, power-cycle, reconnect.
+
+**Tried and abandoned:**
+None.
+
+**Contradicts PRD:**
+None.
+
+**Questions raised:** None.
+
+**Defects noted in earlier tasks (not fixed):**
+None.
+

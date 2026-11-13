@@ -3,8 +3,9 @@
 
 #include <cstdint>
 
-// The transport for a build with no radio (PRD §7.5). A pairing request is
-// answered with NoRadio so the link layer closes the window at once.
+// The transport for a build with no radio (PRD §7.5). pico2 links this.
+// pico2_w links ble_midi.cpp instead. A pairing request is answered with
+// NoRadio so the link layer closes the window at once.
 
 namespace {
 
